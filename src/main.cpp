@@ -11,10 +11,32 @@
 
 using namespace vex;
 
-// A global instance of competition
 competition Competition;
 
-// define your global instances of motors and other devices here
+brain Brain;
+controller Controller;
+
+/* Drive Base Motors (PLACEHOLDER PORT NUMBERS)*/
+motor frontLeftDrive = motor(PORT1, ratio6_1, true);
+motor middleLeftDrive = motor(PORT2, ratio6_1, true);
+motor backLeftDrive = motor(PORT3, ratio6_1, true);
+
+motor_group leftDrive = motor_group(frontLeftDrive, middleLeftDrive, backLeftDrive);
+
+motor frontRightDrive = motor(PORT4, ratio6_1, false);
+motor middleRightDrive = motor(PORT5, ratio6_1, false);
+motor backRightDrive = motor(PORT6, ratio6_1, false);
+motor_group rightDrive = motor_group(frontRightDrive, middleRightDrive, backRightDrive);
+
+
+/* Functions */
+
+void updateDriveSpeed(void){ //Split Arcade Drive Control, controlled with voltage
+
+  leftDrive.spin(forward, Controller.Axis3.position()*0.12 + Controller.Axis1.position()*0.06  , volt);
+  rightDrive.spin(forward,   Controller.Axis3.position()*0.12 - Controller.Axis1.position()*0.09 , volt);
+
+} 
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
@@ -22,7 +44,7 @@ competition Competition;
 /*  You may want to perform some actions before the competition starts.      */
 /*  Do them in the following function.  You must return from this function   */
 /*  or the autonomous and usercontrol tasks will not be started.  This       */
-/*  function is only called once after the V5 has been powered on and        */
+/*  function is only called once after th e V5 has been powered on and        */
 /*  not every time that the robot is disabled.                               */
 /*---------------------------------------------------------------------------*/
 
@@ -59,16 +81,8 @@ void autonomous(void) {
 /*---------------------------------------------------------------------------*/
 
 void usercontrol(void) {
-  // User control code here, inside the loop
   while (1) {
-    // This is the main execution loop for the user control program.
-    // Each time through the loop your program should update motor + servo
-    // values based on feedback from the joysticks.
-
-    // ........................................................................
-    // Insert user code here. This is where you use the joystick values to
-    // update your motors, etc.
-    // ........................................................................
+    
 
     wait(20, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
@@ -81,7 +95,7 @@ void usercontrol(void) {
 int main() {
   // Set up callbacks for autonomous and driver control periods.
   Competition.autonomous(autonomous);
-  Competition.drivercontrol(usercontrol);
+  Competition.drivercontrol(usercontrol); 
 
   // Run the pre-autonomous function.
   pre_auton();

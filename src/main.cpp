@@ -24,31 +24,51 @@ controller Controller;
 
 /* Drive Base Motors (PLACEHOLDER PORT NUMBERS)*/
 motor frontLeftDrive = motor(PORT1, ratio6_1, true);
-motor middleLeftDrive = motor(PORT2, ratio6_1, true);
-motor backLeftDrive = motor(PORT3, ratio6_1, true);
-motor_group leftDrive = motor_group(frontLeftDrive, middleLeftDrive, backLeftDrive);
+motor backLeftDrive = motor(PORT2, ratio6_1, false);
+motor_group leftDrive = motor_group(frontLeftDrive, backLeftDrive);
 
 motor frontRightDrive = motor(PORT4, ratio6_1, false);
-motor middleRightDrive = motor(PORT5, ratio6_1, false);
-motor backRightDrive = motor(PORT6, ratio6_1, false);
-motor_group rightDrive = motor_group(frontRightDrive, middleRightDrive, backRightDrive);
+motor backRightDrive = motor(PORT3, ratio6_1, true);
+motor_group rightDrive = motor_group(frontRightDrive, backRightDrive);
 
-/* Pnumatic Definitions (PLACEHOLDER PORT NUMBERS) */
-digital_out armPiston = digital_out(Brain.ThreeWirePort.A);
+motor blockTrack1 = motor(PORT13, gearSetting::ratio18_1, true);
+motor blockTrack2 = motor(PORT14, gearSetting::ratio18_1, false);
+motor blockTrack3 = motor(PORT15, gearSetting::ratio18_1, true);
+motor blockTrack4 = motor(PORT16, gearSetting::ratio18_1, true);
+
+
 
 /* Variable Declerations */
 int screen = 0; //Used for screen display,0 = Main, 1 = Auton Selection, 2 = Settings, 3 = Motor Information
 
+/* Motor Declerations */
 int motorStatusTimer = 0;//Timer for motor status updates
-bool leftFrontStatus = frontLeftDrive.installed(), leftMiddleStatus = middleLeftDrive.installed(), leftBackStatus = backLeftDrive.installed(), rightFrontStatus = frontRightDrive.installed(), rightMiddleStatus = middleRightDrive.installed(), rightBackStatus = backRightDrive.installed(); // Motor status variables
+bool frontLeftStatus = frontLeftDrive.installed();
+bool backLeftStatus = backLeftDrive.installed();
+bool frontRightStatus = frontRightDrive.installed();
+bool backRightStatus = backRightDrive.installed();
+bool blockTrack1Status = blockTrack1.installed();
+bool blockTrack2Status = blockTrack2.installed();
+bool blockTrack3Status = blockTrack3.installed();
+bool blockTrack4Status = blockTrack4.installed();
 
 
 /* Functions */
 
 void updateDriveSpeed(void){ //Split Arcade Drive Control, controlled with voltage
 
-  leftDrive.spin(forward, Controller.Axis3.position()*0.12 + Controller.Axis1.position()*0.06  , volt);
-  rightDrive.spin(forward,   Controller.Axis3.position()*0.12 - Controller.Axis1.position()*0.09 , volt);
+  double forwardVal = Controller.Axis3.position();
+  double turnVal = Controller.Axis1.position();
+  double leftPower = forwardVal + turnVal;
+  double rightPower = forwardVal - turnVal;
+
+  double leftVoltage = leftPower * 0.12;
+  double rightVoltage = rightPower * 0.12;
+
+  frontRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  backRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  frontLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
+  backLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
 
 } 
 
@@ -80,16 +100,15 @@ void brainUI(void){
   motorStatusTimer+=5;
 
   if (motorStatusTimer>=500){ 
-    
     motorStatusTimer=0;
-
-    leftFrontStatus = frontLeftDrive.installed();
-    leftMiddleStatus = middleLeftDrive.installed();
-    leftBackStatus = backLeftDrive.installed();
-    rightFrontStatus = frontRightDrive.installed();
-    rightMiddleStatus = middleRightDrive.installed();
-    rightBackStatus = backRightDrive.installed();
-  
+    frontLeftStatus = frontLeftDrive.installed();
+    backLeftStatus = backLeftDrive.installed();
+    frontRightStatus = frontRightDrive.installed();
+    backRightStatus = backRightDrive.installed();
+    blockTrack1Status = blockTrack1.installed();
+    blockTrack2Status = blockTrack2.installed();
+    blockTrack3Status = blockTrack3.installed();
+    blockTrack4Status = blockTrack4.installed();
   }
   Brain.Screen.clearScreen();
 
@@ -101,7 +120,7 @@ void brainUI(void){
       drawButton(35, 40, 200, 160, "Auton", 1);
       drawButton(245, 40, 200, 160, "Status Check", 2);
       break;
-      
+
     case 1: //Auton Selection Screen
       Brain.Screen.setFillColor(black);
       Brain.Screen.setPenColor(white);
@@ -113,56 +132,70 @@ void brainUI(void){
       Brain.Screen.setFillColor(black);
       Brain.Screen.setPenColor(white);
 
-      Brain.Screen.setPenColor(leftFrontStatus ? white : red);
-      Brain.Screen.printAt(10, 50, false, "Front Left Drive: %s", leftFrontStatus ? "Connected" : "Disconnected");
-      if (leftFrontStatus) {
+
+      Brain.Screen.setPenColor(frontLeftStatus ? white : red);
+      Brain.Screen.printAt(10, 50, false, "Front Left Drive (Port 1): %s", frontLeftStatus ? "Connected" : "Disconnected");
+      if (frontLeftStatus) {
         double flTemp = frontLeftDrive.temperature(celsius);
         Brain.Screen.setPenColor(flTemp > 50 ? (flTemp > 55 ? red : orange) : white);
         Brain.Screen.printAt(420, 50, false, "%.1f°C", flTemp);
       }
 
-      Brain.Screen.setPenColor(leftMiddleStatus ? white : red);
-      Brain.Screen.printAt(10, 70, false, "Middle Left Drive: %s", leftMiddleStatus ? "Connected" : "Disconnected");
-      if (leftMiddleStatus) {
-        double mlTemp = middleLeftDrive.temperature(celsius);
-        Brain.Screen.setPenColor(mlTemp > 50 ? (mlTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 70, false, "%.1f°C", mlTemp);
-      }
-
-      Brain.Screen.setPenColor(leftBackStatus ? white : red);
-      Brain.Screen.printAt(10, 90, false, "Back Left Drive: %s", leftBackStatus ? "Connected" : "Disconnected");
-      if (leftBackStatus) {
+      Brain.Screen.setPenColor(backLeftStatus ? white : red);
+      Brain.Screen.printAt(10, 70, false, "Back Left Drive (Port 2): %s", backLeftStatus ? "Connected" : "Disconnected");
+      if (backLeftStatus) {
         double blTemp = backLeftDrive.temperature(celsius);
         Brain.Screen.setPenColor(blTemp > 50 ? (blTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 90, false, "%.1f°C", blTemp);
+        Brain.Screen.printAt(420, 70, false, "%.1f°C", blTemp);
       }
 
-      Brain.Screen.setPenColor(rightFrontStatus ? white : red);
-      Brain.Screen.printAt(10, 110, false, "Front Right Drive: %s", rightFrontStatus ? "Connected" : "Disconnected");
-      if (rightFrontStatus) {
+      Brain.Screen.setPenColor(frontRightStatus ? white : red);
+      Brain.Screen.printAt(10, 90, false, "Front Right Drive (Port 4): %s", frontRightStatus ? "Connected" : "Disconnected");
+      if (frontRightStatus) {
         double frTemp = frontRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(frTemp > 50 ? (frTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 110, false, "%.1f°C", frTemp);
+        Brain.Screen.printAt(420, 90, false, "%.1f°C", frTemp);
       }
 
-      Brain.Screen.setPenColor(rightMiddleStatus ? white : red);
-      Brain.Screen.printAt(10, 130, false, "Middle Right Drive: %s", rightMiddleStatus ? "Connected" : "Disconnected");
-      if (rightMiddleStatus) {
-        double mrTemp = middleRightDrive.temperature(celsius);
-        Brain.Screen.setPenColor(mrTemp > 50 ? (mrTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 130, false, "%.1f°C", mrTemp);
-      }
-
-      Brain.Screen.setPenColor(rightBackStatus ? white : red);
-      Brain.Screen.printAt(10, 150, false, "Back Right Drive: %s", rightBackStatus ? "Connected" : "Disconnected");
-      if (rightBackStatus) {
+      Brain.Screen.setPenColor(backRightStatus ? white : red);
+      Brain.Screen.printAt(10, 110, false, "Back Right Drive (Port 3): %s", backRightStatus ? "Connected" : "Disconnected");
+      if (backRightStatus) {
         double brTemp = backRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(brTemp > 50 ? (brTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 150, false, "%.1f°C", brTemp);
+        Brain.Screen.printAt(420, 110, false, "%.1f°C", brTemp);
       }
 
-      Brain.Screen.setPenColor(armPiston.value() ? white : red);
-      Brain.Screen.printAt(10, 170, false, "Arm Piston: %s", armPiston.value() ? "Extended" : "Retracted");
+      Brain.Screen.setPenColor(blockTrack1Status ? white : red);
+      Brain.Screen.printAt(10, 130, false, "Block Track 1 (Port 13): %s", blockTrack1Status ? "Connected" : "Disconnected");
+      if (blockTrack1Status) {
+        double bt1Temp = blockTrack1.temperature(celsius);
+        Brain.Screen.setPenColor(bt1Temp > 50 ? (bt1Temp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 130, false, "%.1f°C", bt1Temp);
+      }
+
+      Brain.Screen.setPenColor(blockTrack2Status ? white : red);
+      Brain.Screen.printAt(10, 150, false, "Block Track 2 (Port 14): %s", blockTrack2Status ? "Connected" : "Disconnected");
+      if (blockTrack2Status) {
+        double bt2Temp = blockTrack2.temperature(celsius);
+        Brain.Screen.setPenColor(bt2Temp > 50 ? (bt2Temp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 150, false, "%.1f°C", bt2Temp);
+      }
+
+      Brain.Screen.setPenColor(blockTrack3Status ? white : red);
+      Brain.Screen.printAt(10, 170, false, "Block Track 3 (Port 15): %s", blockTrack3Status ? "Connected" : "Disconnected");
+      if (blockTrack3Status) {
+        double bt3Temp = blockTrack3.temperature(celsius);
+        Brain.Screen.setPenColor(bt3Temp > 50 ? (bt3Temp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 170, false, "%.1f°C", bt3Temp);
+      }
+
+      Brain.Screen.setPenColor(blockTrack4Status ? white : red);
+      Brain.Screen.printAt(10, 190, false, "Block Track 4 (Port 16): %s", blockTrack4Status ? "Connected" : "Disconnected");
+      if (blockTrack4Status) {
+        double bt4Temp = blockTrack4.temperature(celsius);
+        Brain.Screen.setPenColor(bt4Temp > 50 ? (bt4Temp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 190, false, "%.1f°C", bt4Temp);
+      }
 
       Brain.Screen.setPenColor(white);
       drawButton(5 , 212, 60, 20, "Back", 0);
@@ -176,9 +209,7 @@ void brainUI(void){
 }
 
 void pre_auton(void) {
-
-  armPiston.set(false);//CHANGE IF INVERTED
-
+  // (Arm piston code removed)
 }
 
 void autonomous(void) {
@@ -202,14 +233,32 @@ void usercontrol(void) {
     
     updateDriveSpeed();
 
-    /*Arm Control*/
-    static bool armExtended = false;
-    if(Controller.ButtonA.pressing()){
-      armExtended = !armExtended;
-      armPiston.set(armExtended);
-    }
-
     brainUI();
+
+    if(Controller.ButtonL1.pressing()){
+      blockTrack1.spin(forward, 12, volt);
+      blockTrack2.spin(forward, 12, volt);
+      blockTrack3.spin(forward, 12, volt);
+      blockTrack4.spin(forward, 12, volt);
+    }
+    else if(Controller.ButtonR1.pressing()){
+      blockTrack1.spin(reverse, 12, volt);
+      blockTrack2.spin(reverse, 12, volt);
+      blockTrack3.spin(reverse, 12, volt);
+      blockTrack4.spin(reverse, 12, volt);
+    }
+    else if(Controller.ButtonL2.pressing()){
+      blockTrack1.spin(forward, 12, volt);
+      blockTrack2.spin(forward, 12, volt);
+      blockTrack3.spin(reverse, 12, volt);
+      blockTrack4.spin(reverse, 12, volt);
+    }
+    else{
+      blockTrack1.stop();
+      blockTrack2.stop();
+      blockTrack3.stop();
+      blockTrack4.stop();
+    }
 
     wait(20, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.

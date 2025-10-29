@@ -106,7 +106,8 @@ void driveForward(int degreeNum) {
     rightDrive.spinFor(degreeNum, degrees);
 
   }
-  void driveReverse(int degreeNum) {
+
+void driveReverse(int degreeNum) {
 
     leftDrive.spinFor(forward, degreeNum, degrees, false);
     rightDrive.spinFor(reverse, degreeNum, degrees);
@@ -144,6 +145,13 @@ void loadBalls(){
 }
 
 void extakeBalls(){}
+
+void scoreTop(){
+  blockTrack1.spin(forward, 12, volt);
+  blockTrack2.spin(forward, 12, volt);
+  blockTrack3.spin(forward, 12, volt);
+  blockTrack4.spin(forward, 12, volt);
+}
 
 void turn(int direction, int degreeNum) {
 
@@ -314,11 +322,7 @@ void autonomous(void) {
   rightDrive.setTimeout(1.5, sec);
   driveReverse(800);
   driveForward(30);
-  blockTrack1.spin(forward, 12, volt);
-      blockTrack2.spin(forward, 12, volt);
-      blockTrack3.spin(forward, 12, volt);
-      blockTrack4.spin(forward, 12, volt);
-
+  scoreTop();  
 }
 
 

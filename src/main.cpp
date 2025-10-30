@@ -22,24 +22,27 @@ competition Competition;
 brain Brain;
 controller Controller;
 
-/* Drive Base Motors (PLACEHOLDER PORT NUMBERS)*/
 distance topBlockDist = distance(PORT20);
 distance midBlockDist = distance(PORT19);
 
+/* Left Drive Base Motors */
 motor frontLeftDrive = motor(PORT1, ratio6_1, true);
 motor backLeftDrive = motor(PORT2, ratio6_1, false);
 motor_group leftDrive = motor_group(frontLeftDrive, backLeftDrive);
 
+/* Right Drive Base Motors */
 motor frontRightDrive = motor(PORT4, ratio6_1, false);
 motor backRightDrive = motor(PORT3, ratio6_1, true);
 motor_group rightDrive = motor_group(frontRightDrive, backRightDrive);
 
+/* Block Track Motors */
 motor blockTrack1 = motor(PORT13, gearSetting::ratio18_1, true);
 motor blockTrack2 = motor(PORT14, gearSetting::ratio18_1, false);
 motor blockTrack3 = motor(PORT15, gearSetting::ratio18_1, true);
 motor blockTrack4 = motor(PORT16, gearSetting::ratio18_1, true);
 
-
+/* Unloader */
+digital_out unloader = digital_out(Brain.ThreeWirePort.A);
 
 /* Variable Declerations */
 int screen = 0; //Used for screen display,0 = Main, 1 = Auton Selection, 2 = Settings, 3 = Motor Information
@@ -132,9 +135,9 @@ void loadBalls(){
       blockTrack2.stop(hold);
     }
     if(topBlockDist.objectDistance(mm) >= 150){
-      blockTrack3.spin(forward, 8, volt);
+      blockTrack3.spin(forward, 12, volt);
     } else if(topBlockDist.objectDistance(mm) < 150){
-      blockTrack3.stop();
+      blockTrack3.stop(hold);
     }
     wait(10, msec);
   }
@@ -300,10 +303,11 @@ void brainUI(void){
 }
 
 void pre_auton(void) {
-  // (Arm piston code removed)
+  unloader.set(false);
 }
 
 void autonomous(void) {
+  unloader.set(true);
   loadingBlocks = true;
   thread ballLoaderThread(loadBalls);
   setVelocity(30);
@@ -361,10 +365,10 @@ void usercontrol(void) {
         blockTrack2.stop(hold);
             }
       if(topBlockDist.objectDistance(mm)>=150){
-        blockTrack3.spin(forward, 8, volt);
+        blockTrack3.spin(forward, 12, volt);
       }
       else if(topBlockDist.objectDistance(mm)<150){
-        blockTrack3.stop();
+        blockTrack3.stop(hold);
         }
       }
       else{
@@ -373,7 +377,16 @@ void usercontrol(void) {
         blockTrack3.stop();
         blockTrack4.stop();
       }
+      if(Controller.ButtonX.PRESSED){
 
+      unloader.set(false);
+
+      }
+    if(Controller.ButtonX.RELEASED){
+
+      unloader.set(true);
+
+    }
     wait(10, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
   }

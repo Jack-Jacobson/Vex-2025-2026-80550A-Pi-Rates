@@ -139,7 +139,7 @@ void loadBalls(){
     } else if(topBlockDist.objectDistance(mm) < 150){
       blockTrack3.stop(hold);
     }
-    wait(10, msec);
+    wait(10, msec); 
   }
   blockTrack1.stop();
   blockTrack2.stop();
@@ -379,12 +379,12 @@ void usercontrol(void) {
       }
       if(Controller.ButtonX.PRESSED){
 
-      unloader.set(false);
+      unloader.set(true);
 
       }
     if(Controller.ButtonX.RELEASED){
 
-      unloader.set(true);
+      unloader.set(false);
 
     }
     wait(10, msec); // Sleep the task for a short amount of time to

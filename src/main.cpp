@@ -307,7 +307,6 @@ void pre_auton(void) {
 }
 
 void autonomous(void) {
-  unloader.set(true);
   loadingBlocks = true;
   thread ballLoaderThread(loadBalls);
   setVelocity(30);
@@ -377,16 +376,12 @@ void usercontrol(void) {
         blockTrack3.stop();
         blockTrack4.stop();
       }
+
       if(Controller.ButtonX.PRESSED){
 
-      unloader.set(true);
+      unloader.set(!unloader.value());
 
       }
-    if(Controller.ButtonX.RELEASED){
-
-      unloader.set(false);
-
-    }
     wait(10, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
   }

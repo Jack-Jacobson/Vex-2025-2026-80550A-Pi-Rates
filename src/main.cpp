@@ -31,8 +31,8 @@ motor backLeftDrive = motor(PORT2, ratio6_1, false);
 motor_group leftDrive = motor_group(frontLeftDrive, backLeftDrive);
 
 /* Right Drive Base Motors */
-motor frontRightDrive = motor(PORT4, ratio6_1, false);
-motor backRightDrive = motor(PORT3, ratio6_1, true);
+motor frontRightDrive = motor(PORT3, ratio6_1, false);
+motor backRightDrive = motor(PORT4, ratio6_1, true);
 motor_group rightDrive = motor_group(frontRightDrive, backRightDrive);
 
 /* Block Track Motors */
@@ -228,7 +228,7 @@ void brainUI(void){
       }
 
       Brain.Screen.setPenColor(frontRightStatus ? white : red);
-      Brain.Screen.printAt(10, 60, false, "Front Right Drive (Port 4): %s", frontRightStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 60, false, "Front Right Drive (Port 3): %s", frontRightStatus ? "Connected" : "Disconnected");
       if (frontRightStatus) {
         double frTemp = frontRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(frTemp > 50 ? (frTemp > 55 ? red : orange) : white);
@@ -236,7 +236,7 @@ void brainUI(void){
       }
 
       Brain.Screen.setPenColor(backRightStatus ? white : red);
-      Brain.Screen.printAt(10, 80, false, "Back Right Drive (Port 3): %s", backRightStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 80, false, "Back Right Drive (Port 4): %s", backRightStatus ? "Connected" : "Disconnected");
       if (backRightStatus) {
         double brTemp = backRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(brTemp > 50 ? (brTemp > 55 ? red : orange) : white);
@@ -319,7 +319,7 @@ void autonomous(void) {
   driveReverse(800);
   loadingBlocks = false;
   turn(0, 600);
-  driveReverse(1675);
+  driveReverse(1700);
   turn(0, 625);
   leftDrive.setTimeout(1.5, sec);
   rightDrive.setTimeout(1.5, sec);
@@ -337,25 +337,25 @@ void usercontrol(void) {
     
     brainUI();
 
-    if(Controller.ButtonR1.pressing()){
+    if(Controller.ButtonR2.pressing()){
       blockTrack1.spin(forward, 12, volt);
       blockTrack2.spin(forward, 12, volt);
       blockTrack3.spin(forward, 12, volt);
       blockTrack4.spin(forward, 12, volt);
     }
-    else if(Controller.ButtonL1.pressing()){
+    else if(Controller.ButtonL2.pressing()){
       blockTrack1.spin(reverse, 12, volt);
       blockTrack2.spin(reverse, 12, volt);
       blockTrack3.spin(reverse, 12, volt);
       blockTrack4.spin(reverse, 12, volt);
     }
-    else if(Controller.ButtonR2.pressing()){
+    else if(Controller.ButtonR1.pressing()){
       blockTrack1.spin(forward, 12, volt);
       blockTrack2.spin(forward, 12, volt);
       blockTrack3.spin(reverse, 12, volt);
       blockTrack4.spin(reverse, 12, volt);
     }
-    else if(Controller.ButtonL2.pressing()){
+    else if(Controller.ButtonL1.pressing()){
       blockTrack1.spin(forward, 12, volt);
       if(midBlockDist.objectDistance(mm)>=150){
         blockTrack2.spin(forward, 12, volt);

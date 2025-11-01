@@ -134,9 +134,9 @@ void loadBalls(){
     } else if(midBlockDist.objectDistance(mm) < 150 && topBlockDist.objectDistance(mm) < 150){
       blockTrack2.stop(hold);
     }
-    if(topBlockDist.objectDistance(mm) >= 150){
+    if(topBlockDist.objectDistance(mm) >= 120){
       blockTrack3.spin(forward, 12, volt);
-    } else if(topBlockDist.objectDistance(mm) < 150){
+    } else if(topBlockDist.objectDistance(mm) < 120){
       blockTrack3.stop(hold);
     }
     wait(10, msec); 
@@ -366,10 +366,10 @@ void usercontrol(void) {
       else if(midBlockDist.objectDistance(mm)<150 && topBlockDist.objectDistance(mm)<150){
         blockTrack2.stop(hold);
             }
-      if(topBlockDist.objectDistance(mm)>=150){
+      if(topBlockDist.objectDistance(mm)>=120){
         blockTrack3.spin(forward, 12, volt);
       }
-      else if(topBlockDist.objectDistance(mm)<150){
+      else if(topBlockDist.objectDistance(mm)<120){
         blockTrack3.stop(hold);
         }
       }

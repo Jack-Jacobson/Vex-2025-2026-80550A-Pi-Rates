@@ -22,8 +22,12 @@ competition Competition;
 brain Brain;
 controller Controller;
 
+/* Distance Sensors */
 distance topBlockDist = distance(PORT20);
 distance midBlockDist = distance(PORT19);
+
+/* Inertial and Auton Sensors */
+inertial InertialSensor = inertial(PORT18);
 
 /* Left Drive Base Motors */
 motor frontLeftDrive = motor(PORT1, ratio6_1, true);
@@ -61,7 +65,38 @@ bool blockTrack4Status = blockTrack4.installed();
 bool distanceStatus = topBlockDist.installed();
 bool distance2Status = midBlockDist.installed();
 
+bool calibrated = false;
+
+double inchesPerTick = 0.0279;
+
+double robotX = 0.0;
+double robotY = 0.0;
+double robotHeading = 0.0;
+double prevLeftTicks = 0.0;
+double prevRightTicks = 0.0;
+
 /* Functions */
+
+void updateRobotPosition(void) {
+  double leftTicks = leftDrive.position(vex::rotationUnits::raw);
+  double rightTicks = rightDrive.position(vex::rotationUnits::raw);
+  
+  double deltaLeftTicks = leftTicks - prevLeftTicks;
+  double deltaRightTicks = rightTicks - prevRightTicks;
+  
+  double avgDeltaTicks = (deltaLeftTicks + deltaRightTicks) / 2.0;
+  double distanceTraveled = avgDeltaTicks * inchesPerTick;
+  
+  robotHeading = InertialSensor.heading();
+  
+  double headingRad = robotHeading * M_PI / 180.0;
+
+  robotX += distanceTraveled * sin(headingRad);
+  robotY += distanceTraveled * cos(headingRad);
+  
+  prevLeftTicks = leftTicks;
+  prevRightTicks = rightTicks;
+}
 
 void updateDriveSpeed(void){ //Split Arcade Drive Control, controlled with voltage
 
@@ -109,6 +144,71 @@ void driveForward(int degreeNum) {
     rightDrive.spinFor(degreeNum, degrees);
 
   }
+void setVelocity(int velocity) {
+
+    leftDrive.setVelocity(velocity, percent);
+    rightDrive.setVelocity(velocity, percent);
+
+  }
+
+void turnPID(int targetAngle, int tolerance) {
+
+  double kP = 0.3;  
+  double kI = 0.008;  // Double the integral gain to push through final degrees
+  double kD = 2.6; 
+  double integral = 0;
+  double previousError = 0;
+  double currentAngle = InertialSensor.heading();
+  double error = targetAngle - currentAngle;
+
+  while (abs(error) > tolerance) {
+    currentAngle = InertialSensor.heading();
+    error = targetAngle - currentAngle;
+    
+    if (error > 180) error -= 360;
+    if (error < -180) error += 360;
+    
+    // Anti-windup: only accumulate integral when error is small
+    if (abs(error) < 20) {
+      integral += error;
+    } else {
+      integral = 0;
+    }
+    
+    // Cap integral to prevent windup
+    if (integral > 50) integral = 50;
+    if (integral < -50) integral = -50;
+    
+    double derivative = error - previousError;
+    
+    double output = (kP * error) + (kI * integral) + (kD * derivative);
+    
+    // Always apply minimum power to overcome friction (removed tolerance check)
+    if (abs(output) > 0 && abs(output) < 2.0) {
+      if (output > 0) output = 2.0;
+      if (output < 0) output = -2.0;
+    }
+    
+    if (output > 12) output = 12;
+    if (output < -12) output = -12;
+    
+    leftDrive.spin(reverse, output, volt);
+    rightDrive.spin(forward, -output, volt);
+    
+    previousError = error;
+    wait(10, msec);
+  }
+
+  leftDrive.stop(brake);
+  rightDrive.stop(brake);
+
+}
+
+void driveTicks(double inches){
+  double ticks = inches / inchesPerTick;
+  leftDrive.spinFor(reverse, ticks, vex::rotationUnits::raw, false);
+  rightDrive.spinFor(ticks, vex::rotationUnits::raw);
+}
 
 void driveReverse(int degreeNum) {
 
@@ -117,12 +217,62 @@ void driveReverse(int degreeNum) {
 
   }
 
-void setVelocity(int velocity) {
+void driveToPoint(int x, int y) {
+  double deltaX = x - robotX;
+  double deltaY = y - robotY;
+  
+  double distance = sqrt(deltaX * deltaX + deltaY * deltaY);
 
-    leftDrive.setVelocity(velocity, percent);
-    rightDrive.setVelocity(velocity, percent);
-
+  double targetAngle = atan2(deltaX, deltaY) * 180.0 / M_PI;
+  
+  if (targetAngle < 0) {
+    targetAngle += 360;
   }
+  
+  turnPID(targetAngle, 1);
+
+  setVelocity(80);
+  driveTicks(distance);
+
+  robotX = x;
+  robotY = y;
+  robotHeading = targetAngle;
+}
+
+struct Point {
+  double x;
+  double y;
+  double speed;           
+  double heading = -1;   
+};
+
+Point square[] = {
+  {24, 0, 50}, 
+  {24, 24, 50},  
+  {0, 24, 50},   
+  {0, 0, 50}
+};
+
+Point Auton1[] = {
+
+  {12, 0, 40},
+  {3, 0, 40}
+
+};
+
+void drivePath(Point path[], int pathLength) {
+  for (int i = 0; i < pathLength; i++) {
+    setVelocity(path[i].speed);
+    
+    driveToPoint(path[i].x, path[i].y);
+    
+    if (path[i].heading >= 0) {
+      turnPID(path[i].heading, 1);
+      robotHeading = path[i].heading;
+    }
+    
+  }
+}
 
 bool loadingBlocks = false;
 
@@ -170,8 +320,7 @@ void turn(int direction, int degreeNum) {
     }
 
   }
-
-
+  
 void brainUI(void){
 
   motorStatusTimer+=5;
@@ -304,9 +453,19 @@ void brainUI(void){
 
 void pre_auton(void) {
   unloader.set(false);
-}
+   if(!calibrated){
 
+    InertialSensor.calibrate();
+    while(InertialSensor.isCalibrating()){
+            printf("Calibrating...\n");
+            wait(100, msec);
+          }
+    printf("Calibrated\n");
+    calibrated = true;
+  }
+}
 void autonomous(void) {
+  /*
   loadingBlocks = true;
   thread ballLoaderThread(loadBalls);
   setVelocity(30);
@@ -319,27 +478,51 @@ void autonomous(void) {
   driveReverse(800);
   loadingBlocks = false;
   setVelocity(20);
-  turn(0, 600);
+  turn(1, 600);
   setVelocity(40);
   driveReverse(1700);
   setVelocity(20);
-  turn(0, 625);
+  turn(1, 625);
   leftDrive.setTimeout(1.5, sec);
   rightDrive.setTimeout(1.5, sec);
   driveReverse(800);
   driveForward(30);
   scoreTop();  
+  */
+ setVelocity(40);
+ driveTicks(5);
 }
-
 
 void usercontrol(void) {
   while (1) {
     
+    if(!calibrated){
+
+    InertialSensor.calibrate();
+    while(InertialSensor.isCalibrating()){
+            printf("Calibrating...\n");
+            wait(100, msec);
+          }
+    printf("Calibrated\n");
+    calibrated = true;
+  }
+
     updateDriveSpeed();
+    updateRobotPosition();  // Update robot X, Y position based on encoders and heading
 
     
     brainUI();
-
+    
+       if(Controller.ButtonRight.PRESSED){
+      turnPID(180, 1);
+    }
+    if(Controller.ButtonLeft.PRESSED){
+      printf("%.2f\n", InertialSensor.heading());
+    }
+   
+   if(Controller.ButtonUp.pressing()){
+    drivePath(square, 4);
+   }
     if(Controller.ButtonR2.pressing()){
       blockTrack1.spin(forward, 12, volt);
       blockTrack2.spin(forward, 12, volt);
@@ -385,7 +568,12 @@ void usercontrol(void) {
       unloader.set(!unloader.value());
 
       }
-    wait(10, msec); // Sleep the task for a short amount of time to
+      if(Controller.ButtonA.PRESSED){
+      unloader.set(!unloader.value());
+      }
+    
+    
+      wait(10, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
   }
 }

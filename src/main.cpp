@@ -13,10 +13,12 @@ competition Competition;
 brain Brain;
 controller Controller;
 
-distance topBlockDist = distance(PORT20);
-distance midBlockDist = distance(PORT19);
+distance intakeDist = distance(PORT16);
+distance midOneDist = distance(PORT17);
+distance midTwoDist = distance(PORT18);
+distance topBlockDist = distance(PORT19);
 
-inertial InertialSensor = inertial(PORT18);
+inertial InertialSensor = inertial(PORT20);
 
 motor topLeftDrive = motor(PORT4, ratio6_1, true);
 motor bottomLeftDrive = motor(PORT3, ratio6_1, false);
@@ -36,7 +38,7 @@ motor_group blockTrack = motor_group(blockTrack1, blockTrack2, blockTrack3, bloc
 //Radio in 21
 
 digital_out unloader = digital_out(Brain.ThreeWirePort.A);
-
+digital_out descore = digital_out(Brain.ThreeWirePort.H);
 
 int screen = 0;
 
@@ -50,10 +52,20 @@ bool blockTrack2Status = blockTrack2.installed();
 bool blockTrack3Status = blockTrack3.installed();
 bool blockTrack4Status = blockTrack4.installed();
 bool blockTrack5Status = blockTrack5.installed();
-bool distanceStatus = topBlockDist.installed();
-bool distance2Status = midBlockDist.installed();
-
+bool intakeDistStatus = intakeDist.installed();
+bool midOneDistStatus = midOneDist.installed();
+bool midTwoDistStatus = midTwoDist.installed();
+bool topBlockDistStatus = topBlockDist.installed();
+bool inertialStatus = InertialSensor.installed();
+bool topBlock = false;
+bool midOneBlock = false;
+bool midTwoBlock = false;
+bool intakeBlock = false;
 bool calibrated = false;
+bool spin1 = true;
+bool spin2 = true;
+bool spin3 = true;
+bool spin4 = true;
 
 double inchesPerTick = 0.0279;
 
@@ -332,7 +344,11 @@ void brainUI(void){
     blockTrack3Status = blockTrack3.installed();
     blockTrack4Status = blockTrack4.installed();
     blockTrack5Status = blockTrack5.installed();
-    distanceStatus = topBlockDist.installed();
+    intakeDistStatus = intakeDist.installed();
+    midOneDistStatus = midOneDist.installed();
+    midTwoDistStatus = midTwoDist.installed();
+    topBlockDistStatus = topBlockDist.installed();
+    inertialStatus = InertialSensor.installed();
   }
   Brain.Screen.clearScreen();
 
@@ -355,82 +371,113 @@ void brainUI(void){
     case 2:
       Brain.Screen.setFillColor(black);
       Brain.Screen.setPenColor(white);
-
+      Brain.Screen.setFont(prop20);
 
       Brain.Screen.setPenColor(frontLeftStatus ? white : red);
-      Brain.Screen.printAt(10, 20, false, "Top Left Drive (Port 4): %s", frontLeftStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 15, false, "TL Drive (P4): %s", frontLeftStatus ? "OK" : "ERR");
       if (frontLeftStatus) {
         double flTemp = topLeftDrive.temperature(celsius);
         Brain.Screen.setPenColor(flTemp > 50 ? (flTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 20, false, "%.1f°C", flTemp);
+        Brain.Screen.printAt(420, 15, false, "%.1fC", flTemp);
       }
 
       Brain.Screen.setPenColor(backLeftStatus ? white : red);
-      Brain.Screen.printAt(10, 40, false, "Bottom Left Drive (Port 3): %s", backLeftStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 30, false, "BL Drive (P3): %s", backLeftStatus ? "OK" : "ERR");
       if (backLeftStatus) {
         double blTemp = bottomLeftDrive.temperature(celsius);
         Brain.Screen.setPenColor(blTemp > 50 ? (blTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 40, false, "%.1f°C", blTemp);
+        Brain.Screen.printAt(420, 30, false, "%.1fC", blTemp);
       }
 
       Brain.Screen.setPenColor(frontRightStatus ? white : red);
-      Brain.Screen.printAt(10, 60, false, "Top Right Drive (Port 2): %s", frontRightStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 45, false, "TR Drive (P2): %s", frontRightStatus ? "OK" : "ERR");
       if (frontRightStatus) {
         double frTemp = topRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(frTemp > 50 ? (frTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 60, false, "%.1f°C", frTemp);
+        Brain.Screen.printAt(420, 45, false, "%.1fC", frTemp);
       }
 
       Brain.Screen.setPenColor(backRightStatus ? white : red);
-      Brain.Screen.printAt(10, 80, false, "Bottom Right Drive (Port 1): %s", backRightStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 60, false, "BR Drive (P1): %s", backRightStatus ? "OK" : "ERR");
       if (backRightStatus) {
         double brTemp = bottomRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(brTemp > 50 ? (brTemp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 80, false, "%.1f°C", brTemp);
+        Brain.Screen.printAt(420, 60, false, "%.1fC", brTemp);
       }
 
       Brain.Screen.setPenColor(blockTrack1Status ? white : red);
-      Brain.Screen.printAt(10, 100, false, "Block Track 1 (Port 11): %s", blockTrack1Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 75, false, "BT1 (P11): %s", blockTrack1Status ? "OK" : "ERR");
       if (blockTrack1Status) {
         double bt1Temp = blockTrack1.temperature(celsius);
         Brain.Screen.setPenColor(bt1Temp > 50 ? (bt1Temp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 100, false, "%.1f°C", bt1Temp);
+        Brain.Screen.printAt(420, 75, false, "%.1fC", bt1Temp);
       }
 
       Brain.Screen.setPenColor(blockTrack2Status ? white : red);
-      Brain.Screen.printAt(10, 120, false, "Block Track 2 (Port 12): %s", blockTrack2Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 90, false, "BT2 (P12): %s", blockTrack2Status ? "OK" : "ERR");
       if (blockTrack2Status) {
         double bt2Temp = blockTrack2.temperature(celsius);
         Brain.Screen.setPenColor(bt2Temp > 50 ? (bt2Temp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 120, false, "%.1f°C", bt2Temp);
+        Brain.Screen.printAt(420, 90, false, "%.1fC", bt2Temp);
       }
 
       Brain.Screen.setPenColor(blockTrack3Status ? white : red);
-      Brain.Screen.printAt(10, 140, false, "Block Track 3 (Port 13): %s", blockTrack3Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 105, false, "BT3 (P13): %s", blockTrack3Status ? "OK" : "ERR");
       if (blockTrack3Status) {
         double bt3Temp = blockTrack3.temperature(celsius);
         Brain.Screen.setPenColor(bt3Temp > 50 ? (bt3Temp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 140, false, "%.1f°C", bt3Temp);
+        Brain.Screen.printAt(420, 105, false, "%.1fC", bt3Temp);
       }
 
       Brain.Screen.setPenColor(blockTrack4Status ? white : red);
-      Brain.Screen.printAt(10, 160, false, "Block Track 4 (Port 14): %s", blockTrack4Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 120, false, "BT4 (P14): %s", blockTrack4Status ? "OK" : "ERR");
       if (blockTrack4Status) {
         double bt4Temp = blockTrack4.temperature(celsius);
         Brain.Screen.setPenColor(bt4Temp > 50 ? (bt4Temp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 160, false, "%.1f°C", bt4Temp);
+        Brain.Screen.printAt(420, 120, false, "%.1fC", bt4Temp);
       }
 
       Brain.Screen.setPenColor(blockTrack5Status ? white : red);
-      Brain.Screen.printAt(10, 180, false, "Block Track 5 (Port 15): %s", blockTrack5Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 135, false, "BT5 (P15): %s", blockTrack5Status ? "OK" : "ERR");
       if (blockTrack5Status) {
         double bt5Temp = blockTrack5.temperature(celsius);
         Brain.Screen.setPenColor(bt5Temp > 50 ? (bt5Temp > 55 ? red : orange) : white);
-        Brain.Screen.printAt(420, 180, false, "%.1f°C", bt5Temp);
+        Brain.Screen.printAt(420, 135, false, "%.1fC", bt5Temp);
       }
 
+      Brain.Screen.setPenColor(intakeDistStatus ? white : red);
+      Brain.Screen.printAt(10, 150, false, "Intake Dist (P16): %s", intakeDistStatus ? "OK" : "ERR");
+      if (intakeDistStatus) {
+        Brain.Screen.setPenColor(white);
+        Brain.Screen.printAt(380, 150, false, "%.0fmm", intakeDist.objectDistance(mm));
+      }
+
+      Brain.Screen.setPenColor(midOneDistStatus ? white : red);
+      Brain.Screen.printAt(10, 165, false, "Mid1 Dist (P17): %s", midOneDistStatus ? "OK" : "ERR");
+      if (midOneDistStatus) {
+        Brain.Screen.setPenColor(white);
+        Brain.Screen.printAt(380, 165, false, "%.0fmm", midOneDist.objectDistance(mm));
+      }
+
+      Brain.Screen.setPenColor(midTwoDistStatus ? white : red);
+      Brain.Screen.printAt(10, 180, false, "Mid2 Dist (P18): %s", midTwoDistStatus ? "OK" : "ERR");
+      if (midTwoDistStatus) {
+        Brain.Screen.setPenColor(white);
+        Brain.Screen.printAt(380, 180, false, "%.0fmm", midTwoDist.objectDistance(mm));
+      }
+
+      Brain.Screen.setPenColor(topBlockDistStatus ? white : red);
+      Brain.Screen.printAt(10, 195, false, "Top Dist (P19): %s", topBlockDistStatus ? "OK" : "ERR");
+      if (topBlockDistStatus) {
+        Brain.Screen.setPenColor(white);
+        Brain.Screen.printAt(380, 195, false, "%.0fmm", topBlockDist.objectDistance(mm));
+      }
+
+      Brain.Screen.setPenColor(inertialStatus ? white : red);
+      Brain.Screen.printAt(240, 15, false, "IMU (P20): %s", inertialStatus ? "OK" : "ERR");
+
       Brain.Screen.setPenColor(white);
-      drawButton(5 , 212, 60, 20, "Back", 0);
+      drawButton(5, 212, 60, 20, "Back", 0);
       break;
 
     }
@@ -484,58 +531,83 @@ void autonomous(void) {
 
 void usercontrol(void) {
   while (1) {
-    
-    if(!calibrated){
 
-    InertialSensor.calibrate();
-    while(InertialSensor.isCalibrating()){
-            printf("Calibrating...\n");
-            wait(100, msec);
-          }
-    printf("Calibrated\n");
-    calibrated = true;
-  }
+    if(!calibrated){
+      InertialSensor.calibrate();
+      while(InertialSensor.isCalibrating()){
+        printf("Calibrating...\n");
+        wait(100, msec);
+      }
+      printf("Calibrated\n");
+      calibrated = true;
+    }
 
     updateDriveSpeed();
     updateRobotPosition();  // Update robot X, Y position based on encoders and heading
 
-    
+    topBlock = (topBlockDist.objectDistance(mm) < 120);
+    midTwoBlock = (midTwoDist.objectDistance(mm) < 130);
+    midOneBlock = (midOneDist.objectDistance(mm) < 160);
+    intakeBlock = (intakeDist.objectDistance(mm) < 200);
+
     brainUI();
-    
-       if(Controller.ButtonRight.PRESSED){
-     // turnPID(180, 1);
+
+    if(Controller.ButtonRight.pressing()){
+      // turnPID(180, 1);
     }
-    if(Controller.ButtonLeft.PRESSED){
+    if(Controller.ButtonLeft.pressing()){
       //printf("%.2f\n", InertialSensor.heading());
     }
-   
-   if(Controller.ButtonUp.pressing()){
-   // drivePath(square, 4);
-   }
+
+    if(Controller.ButtonUp.pressing()){
+      // drivePath(square, 4);
+    }
+
     if(Controller.ButtonR2.pressing()){
-     blockTrack.spin(forward, 12, volt);
-    }
-    else if(Controller.ButtonR1.pressing()){
-     blockTrack.spin(reverse, 12, volt);
-    }
-    else if(Controller.ButtonL1.pressing()){
-     blockTrack1.spin(forward, 12, volt);
+      blockTrack.spin(forward, 12, volt);
+    } else if(Controller.ButtonL2.pressing()){
+      blockTrack.spin(reverse, 12, volt);
+    } else if(Controller.ButtonR1.pressing()){
+      blockTrack1.spin(forward, 12, volt);
       blockTrack2.spin(forward, 12, volt);
       blockTrack3.spin(forward, 12, volt);
       blockTrack4.spin(reverse, 12, volt);
       blockTrack5.spin(reverse, 12, volt);
-    }
-    else{
-     blockTrack.stop();
-    }
-      if(Controller.ButtonX.PRESSED || Controller.ButtonA.PRESSED){
-
-      unloader.set(!unloader.value());
-
+    } else if(Controller.ButtonL1.pressing()){
+      blockTrack1.spin(forward, 12, volt);
+      blockTrack2.spin(forward, 12, volt);
+      blockTrack3.spin(forward, 12, volt);
+      blockTrack4.spin(forward, 12, volt);
+      blockTrack5.stop(brake);
+      
+      if(topBlock && midTwoBlock && midOneBlock && intakeBlock){
+        blockTrack1.stop(brake);
+        blockTrack2.stop(brake);
+       blockTrack3.stop(brake);
+        blockTrack4.stop(brake);
+      } else if(topBlock && midTwoBlock && midOneBlock){
+        blockTrack2.stop(brake);
+        blockTrack3.stop(brake);
+   //     blockTrack4.stop(brake);
+      } else if(topBlock && midTwoBlock){
+       blockTrack2.stop(brake); 
+   //     blockTrack4.stop(brake);
+      } else if(topBlock){
+        //blockTrack4.stop(brake);
       }
-    
-      wait(10, msec); // Sleep the task for a short amount of time to
-                    // prevent wasted resources.
+      
+    } else {
+      blockTrack.stop();
+    }
+
+    if(Controller.ButtonX.PRESSED || Controller.ButtonA.PRESSED){
+      unloader.set(!unloader.value());
+    }
+    if(Controller.ButtonY.PRESSED || Controller.ButtonB.PRESSED){
+      descore.set(!descore.value());
+    }
+
+    wait(10, msec); // Sleep the task for a short amount of time to prevent wasted resources.
   }
 }
 

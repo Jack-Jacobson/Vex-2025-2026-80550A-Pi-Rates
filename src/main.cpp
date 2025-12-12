@@ -530,8 +530,9 @@ void autonomous(void) {
 }
 
 void usercontrol(void) {
-  while (1) {
+      descore.set(true);
 
+  while (1) {
     if(!calibrated){
       InertialSensor.calibrate();
       while(InertialSensor.isCalibrating()){

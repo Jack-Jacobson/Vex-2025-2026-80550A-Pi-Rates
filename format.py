@@ -30,7 +30,7 @@ if start_idx == -1 or end_idx == -1:
 
 points = []
 for line in lines[start_idx:end_idx]:
-    line = line.strip()
+    line = line.strip()                     
     if not line:
         continue
     
@@ -42,6 +42,7 @@ for line in lines[start_idx:end_idx]:
     y_cm = float(parts[1])
     rpm = int(parts[2])
     heading = float(parts[3]) if len(parts) >= 4 else -1
+    flag = int(parts[4]) if len(parts) >= 5 else 0  # Optional flag parameter
     
     x_in = x_cm * 0.393701
     y_in = y_cm * 0.393701
@@ -56,7 +57,8 @@ for line in lines[start_idx:end_idx]:
         'x': x_in,
         'y': y_in,
         'speed': speed_percent,
-        'heading': heading
+        'heading': heading,
+        'flag': flag
     })
 
 output_lines = []
@@ -67,10 +69,17 @@ for i, point in enumerate(points):
     y = point['y']
     speed = point['speed']
     heading = point['heading']
+    flag = point['flag']
     
-    if heading >= 0:
+    # Build the point string based on which optional parameters are set
+    if flag != 0:
+        # Flag is set, include everything
+        line = f"  {{{x:.3f}, {y:.3f}, {speed}, {heading}, {flag}}}"
+    elif heading >= 0:
+        # Heading is set but no flag
         line = f"  {{{x:.3f}, {y:.3f}, {speed}, {heading}}}"
     else:
+        # Only required parameters
         line = f"  {{{x:.3f}, {y:.3f}, {speed}}}"
     
     if i < len(points) - 1:
@@ -80,7 +89,6 @@ for i, point in enumerate(points):
 
 output_lines.append("};")
 output_lines.append(f"\n// Path has {len(points)} points")
-output_lines.append(f"// To use: drivePath(path, {len(points)});")
 
 for line in output_lines:
     print(line)

@@ -1,12 +1,3 @@
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*    Module:       main.cpp                                                  */
-/*    Author:       jokin                                                     */
-/*    Created:      9/9/2025, 4:42:40 PM                                      */
-/*    Description:  V5 project                                                */
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
-
 #include "vex.h"
 #include <iostream>
 #include <cstring>
@@ -22,46 +13,43 @@ competition Competition;
 brain Brain;
 controller Controller;
 
-/* Distance Sensors */
 distance topBlockDist = distance(PORT20);
 distance midBlockDist = distance(PORT19);
 
-/* Inertial and Auton Sensors */
 inertial InertialSensor = inertial(PORT18);
 
-/* Left Drive Base Motors */
-motor frontLeftDrive = motor(PORT1, ratio6_1, true);
-motor backLeftDrive = motor(PORT2, ratio6_1, false);
-motor_group leftDrive = motor_group(frontLeftDrive, backLeftDrive);
+motor topLeftDrive = motor(PORT4, ratio6_1, true);
+motor bottomLeftDrive = motor(PORT3, ratio6_1, false);
+motor_group leftDrive = motor_group(topLeftDrive, bottomLeftDrive);
 
-/* Right Drive Base Motors */
-motor frontRightDrive = motor(PORT3, ratio6_1, false);
-motor backRightDrive = motor(PORT4, ratio6_1, true);
-motor_group rightDrive = motor_group(frontRightDrive, backRightDrive);
+motor topRightDrive = motor(PORT2, ratio6_1, false);
+motor bottomRightDrive = motor(PORT1, ratio6_1, true);
+motor_group rightDrive = motor_group(topRightDrive, bottomRightDrive);
 
-/* Block Track Motors */
-motor blockTrack1 = motor(PORT13, gearSetting::ratio18_1, true);
-motor blockTrack2 = motor(PORT14, gearSetting::ratio18_1, false);
-motor blockTrack3 = motor(PORT15, gearSetting::ratio18_1, true);
-motor blockTrack4 = motor(PORT16, gearSetting::ratio18_1, true);
+motor blockTrack1 = motor(PORT11, gearSetting::ratio18_1, true);
+motor blockTrack2 = motor(PORT12, gearSetting::ratio18_1, true);
+motor blockTrack3 = motor(PORT13, gearSetting::ratio18_1, true);
+motor blockTrack4 = motor(PORT14, gearSetting::ratio18_1, true);
+motor blockTrack5 = motor(PORT15, gearSetting::ratio18_1, true);
+motor_group blockTrack = motor_group(blockTrack1, blockTrack2, blockTrack3, blockTrack4, blockTrack5);
 
-/* Unloader */
+//Radio in 21
+
 digital_out unloader = digital_out(Brain.ThreeWirePort.A);
 
-/* Variable Declerations */
-int screen = 0; //Used for screen display,0 = Main, 1 = Auton Selection, 2 = Settings, 3 = Motor Information
 
-/* Motor Declerations */
-int motorStatusTimer = 0;//Timer for motor status updates
-bool frontLeftStatus = frontLeftDrive.installed();
-bool backLeftStatus = backLeftDrive.installed();
-bool frontRightStatus = frontRightDrive.installed();
-bool backRightStatus = backRightDrive.installed();
+int screen = 0;
+
+int motorStatusTimer = 0;
+bool frontLeftStatus = topLeftDrive.installed();
+bool backLeftStatus = bottomLeftDrive.installed();
+bool frontRightStatus = topRightDrive.installed();
+bool backRightStatus = bottomRightDrive.installed();
 bool blockTrack1Status = blockTrack1.installed();
 bool blockTrack2Status = blockTrack2.installed();
 bool blockTrack3Status = blockTrack3.installed();
-
 bool blockTrack4Status = blockTrack4.installed();
+bool blockTrack5Status = blockTrack5.installed();
 bool distanceStatus = topBlockDist.installed();
 bool distance2Status = midBlockDist.installed();
 
@@ -74,8 +62,6 @@ double robotY = 0.0;
 double robotHeading = 0.0;
 double prevLeftTicks = 0.0;
 double prevRightTicks = 0.0;
-
-/* Functions */
 
 void updateRobotPosition(void) {
   double leftTicks = leftDrive.position(vex::rotationUnits::raw);
@@ -98,20 +84,20 @@ void updateRobotPosition(void) {
   prevRightTicks = rightTicks;
 }
 
-void updateDriveSpeed(void){ //Split Arcade Drive Control, controlled with voltage
+void updateDriveSpeed(void){
 
-  double forwardVal = -Controller.Axis1.position();
-  double turnVal = -Controller.Axis3.position();
+  double forwardVal = -Controller.Axis3.position();
+  double turnVal = -Controller.Axis1.position();
   double leftPower = forwardVal + turnVal;
   double rightPower = forwardVal - turnVal;
 
   double leftVoltage = leftPower * 0.12;
   double rightVoltage = rightPower * 0.12;
 
-  frontRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
-  backRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
-  frontLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
-  backLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
+  topRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  bottomRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  topLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
+  bottomLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
 
 } 
 
@@ -136,7 +122,7 @@ void drawButton(int x, int y, int w, int h, std::string t, int destination) {
             return;
         }
     }
-}// Draws a button at specified location with text, changes screen variable to destination if pressed (MADE IN 24-25 SEASON BY ME)
+}
 
 void driveForward(int degreeNum) {
 
@@ -154,7 +140,7 @@ void setVelocity(int velocity) {
 void turnPID(int targetAngle, int tolerance) {
 
   double kP = 0.3;  
-  double kI = 0.008;  // Double the integral gain to push through final degrees
+  double kI = 0.008;
   double kD = 2.6; 
   double integral = 0;
   double previousError = 0;
@@ -168,14 +154,12 @@ void turnPID(int targetAngle, int tolerance) {
     if (error > 180) error -= 360;
     if (error < -180) error += 360;
     
-    // Anti-windup: only accumulate integral when error is small
     if (abs(error) < 20) {
       integral += error;
     } else {
       integral = 0;
     }
     
-    // Cap integral to prevent windup
     if (integral > 50) integral = 50;
     if (integral < -50) integral = -50;
     
@@ -183,7 +167,6 @@ void turnPID(int targetAngle, int tolerance) {
     
     double output = (kP * error) + (kI * integral) + (kD * derivative);
     
-    // Always apply minimum power to overcome friction (removed tolerance check)
     if (abs(output) > 0 && abs(output) < 2.0) {
       if (output > 0) output = 2.0;
       if (output < 0) output = -2.0;
@@ -227,7 +210,7 @@ void driveToPoint(int x, int y) {
   
   if (targetAngle < 0) {
     targetAngle += 360;
-  }
+  } 
   
   turnPID(targetAngle, 1);
 
@@ -242,10 +225,11 @@ void driveToPoint(int x, int y) {
 struct Point {
   double x;
   double y;
-  double speed;           
-  double heading = -1;   
+  double speed;
+  double heading = -1;
+  int flag = -1;
 };
-
+/** 
 Point square[] = {
   {24, 0, 50}, 
   {24, 24, 50},  
@@ -260,19 +244,6 @@ Point Auton1[] = {
 
 };
 
-void drivePath(Point path[], int pathLength) {
-  for (int i = 0; i < pathLength; i++) {
-    setVelocity(path[i].speed);
-    
-    driveToPoint(path[i].x, path[i].y);
-    
-    if (path[i].heading >= 0) {
-      turnPID(path[i].heading, 1);
-      robotHeading = path[i].heading;
-    }
-    
-  }
-}
 
 bool loadingBlocks = false;
 
@@ -321,26 +292,52 @@ void turn(int direction, int degreeNum) {
 
   }
   
+
+void drivePath(Point path[], int pathLength) {
+  for (int i = 0; i < pathLength; i++) {
+    
+    if(path[i].flag == 0){
+    loadBalls();
+    } else if(path[i].flag == 1){
+      
+    }   
+    else if(path[i].flag == 2){
+      
+    }
+    
+    setVelocity(path[i].speed);
+    
+    driveToPoint(path[i].x, path[i].y);
+    
+    if (path[i].heading >= 0) {
+      turnPID(path[i].heading, 1);
+      robotHeading = path[i].heading;
+    }
+    
+  }
+}
+*/
 void brainUI(void){
 
   motorStatusTimer+=5;
 
   if (motorStatusTimer>=500){ 
     motorStatusTimer=0;
-    frontLeftStatus = frontLeftDrive.installed();
-    backLeftStatus = backLeftDrive.installed();
-    frontRightStatus = frontRightDrive.installed();
-    backRightStatus = backRightDrive.installed();
+    frontLeftStatus = topLeftDrive.installed();
+    backLeftStatus = bottomLeftDrive.installed();
+    frontRightStatus = topRightDrive.installed();
+    backRightStatus = bottomRightDrive.installed();
     blockTrack1Status = blockTrack1.installed();
     blockTrack2Status = blockTrack2.installed();
     blockTrack3Status = blockTrack3.installed();
-  blockTrack4Status = blockTrack4.installed();
-  distanceStatus = topBlockDist.installed();
+    blockTrack4Status = blockTrack4.installed();
+    blockTrack5Status = blockTrack5.installed();
+    distanceStatus = topBlockDist.installed();
   }
   Brain.Screen.clearScreen();
 
   switch(screen){
-    case 0: //Main Screen
+    case 0:
       Brain.Screen.setFillColor(black);
       Brain.Screen.setPenColor(white);
 
@@ -348,52 +345,52 @@ void brainUI(void){
       drawButton(245, 40, 200, 160, "Status Check", 2);
       break;
 
-    case 1: //Auton Selection Screen
+    case 1:
       Brain.Screen.setFillColor(black);
       Brain.Screen.setPenColor(white);
 
       drawButton(5 , 212, 60, 20, "Back", 0);
       break;
 
-    case 2: //Motor Information
+    case 2:
       Brain.Screen.setFillColor(black);
       Brain.Screen.setPenColor(white);
 
 
       Brain.Screen.setPenColor(frontLeftStatus ? white : red);
-      Brain.Screen.printAt(10, 20, false, "Front Left Drive (Port 1): %s", frontLeftStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 20, false, "Top Left Drive (Port 4): %s", frontLeftStatus ? "Connected" : "Disconnected");
       if (frontLeftStatus) {
-        double flTemp = frontLeftDrive.temperature(celsius);
+        double flTemp = topLeftDrive.temperature(celsius);
         Brain.Screen.setPenColor(flTemp > 50 ? (flTemp > 55 ? red : orange) : white);
         Brain.Screen.printAt(420, 20, false, "%.1f°C", flTemp);
       }
 
       Brain.Screen.setPenColor(backLeftStatus ? white : red);
-      Brain.Screen.printAt(10, 40, false, "Back Left Drive (Port 2): %s", backLeftStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 40, false, "Bottom Left Drive (Port 3): %s", backLeftStatus ? "Connected" : "Disconnected");
       if (backLeftStatus) {
-        double blTemp = backLeftDrive.temperature(celsius);
+        double blTemp = bottomLeftDrive.temperature(celsius);
         Brain.Screen.setPenColor(blTemp > 50 ? (blTemp > 55 ? red : orange) : white);
         Brain.Screen.printAt(420, 40, false, "%.1f°C", blTemp);
       }
 
       Brain.Screen.setPenColor(frontRightStatus ? white : red);
-      Brain.Screen.printAt(10, 60, false, "Front Right Drive (Port 3): %s", frontRightStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 60, false, "Top Right Drive (Port 2): %s", frontRightStatus ? "Connected" : "Disconnected");
       if (frontRightStatus) {
-        double frTemp = frontRightDrive.temperature(celsius);
+        double frTemp = topRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(frTemp > 50 ? (frTemp > 55 ? red : orange) : white);
         Brain.Screen.printAt(420, 60, false, "%.1f°C", frTemp);
       }
 
       Brain.Screen.setPenColor(backRightStatus ? white : red);
-      Brain.Screen.printAt(10, 80, false, "Back Right Drive (Port 4): %s", backRightStatus ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 80, false, "Bottom Right Drive (Port 1): %s", backRightStatus ? "Connected" : "Disconnected");
       if (backRightStatus) {
-        double brTemp = backRightDrive.temperature(celsius);
+        double brTemp = bottomRightDrive.temperature(celsius);
         Brain.Screen.setPenColor(brTemp > 50 ? (brTemp > 55 ? red : orange) : white);
         Brain.Screen.printAt(420, 80, false, "%.1f°C", brTemp);
       }
 
       Brain.Screen.setPenColor(blockTrack1Status ? white : red);
-      Brain.Screen.printAt(10, 100, false, "Block Track 1 (Port 13): %s", blockTrack1Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 100, false, "Block Track 1 (Port 11): %s", blockTrack1Status ? "Connected" : "Disconnected");
       if (blockTrack1Status) {
         double bt1Temp = blockTrack1.temperature(celsius);
         Brain.Screen.setPenColor(bt1Temp > 50 ? (bt1Temp > 55 ? red : orange) : white);
@@ -401,7 +398,7 @@ void brainUI(void){
       }
 
       Brain.Screen.setPenColor(blockTrack2Status ? white : red);
-      Brain.Screen.printAt(10, 120, false, "Block Track 2 (Port 14): %s", blockTrack2Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 120, false, "Block Track 2 (Port 12): %s", blockTrack2Status ? "Connected" : "Disconnected");
       if (blockTrack2Status) {
         double bt2Temp = blockTrack2.temperature(celsius);
         Brain.Screen.setPenColor(bt2Temp > 50 ? (bt2Temp > 55 ? red : orange) : white);
@@ -409,7 +406,7 @@ void brainUI(void){
       }
 
       Brain.Screen.setPenColor(blockTrack3Status ? white : red);
-      Brain.Screen.printAt(10, 140, false, "Block Track 3 (Port 15): %s", blockTrack3Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 140, false, "Block Track 3 (Port 13): %s", blockTrack3Status ? "Connected" : "Disconnected");
       if (blockTrack3Status) {
         double bt3Temp = blockTrack3.temperature(celsius);
         Brain.Screen.setPenColor(bt3Temp > 50 ? (bt3Temp > 55 ? red : orange) : white);
@@ -417,27 +414,19 @@ void brainUI(void){
       }
 
       Brain.Screen.setPenColor(blockTrack4Status ? white : red);
-      Brain.Screen.printAt(10, 160, false, "Block Track 4 (Port 16): %s", blockTrack4Status ? "Connected" : "Disconnected");
+      Brain.Screen.printAt(10, 160, false, "Block Track 4 (Port 14): %s", blockTrack4Status ? "Connected" : "Disconnected");
       if (blockTrack4Status) {
         double bt4Temp = blockTrack4.temperature(celsius);
         Brain.Screen.setPenColor(bt4Temp > 50 ? (bt4Temp > 55 ? red : orange) : white);
         Brain.Screen.printAt(420, 160, false, "%.1f°C", bt4Temp);
       }
 
-      // Top Distance Sensor Info
-      Brain.Screen.setPenColor(distanceStatus ? white : red);
-      Brain.Screen.printAt(10, 180, false, "Top Distance Sensor (Port 20): %s", distanceStatus ? "Connected" : "Disconnected");
-      if (distanceStatus) {
-        Brain.Screen.setPenColor(white);
-        Brain.Screen.printAt(420, 180, false, "%.1f mm", topBlockDist.objectDistance(mm));
-      }
-
-      // Mid Distance Sensor Info
-      Brain.Screen.setPenColor(distance2Status ? white : red);
-      Brain.Screen.printAt(10, 200, false, "Mid Distance Sensor (Port 19): %s", distance2Status ? "Connected" : "Disconnected");
-      if (distance2Status) {
-        Brain.Screen.setPenColor(white);
-        Brain.Screen.printAt(420, 200, false, "%.1f mm", midBlockDist.objectDistance(mm));
+      Brain.Screen.setPenColor(blockTrack5Status ? white : red);
+      Brain.Screen.printAt(10, 180, false, "Block Track 5 (Port 15): %s", blockTrack5Status ? "Connected" : "Disconnected");
+      if (blockTrack5Status) {
+        double bt5Temp = blockTrack5.temperature(celsius);
+        Brain.Screen.setPenColor(bt5Temp > 50 ? (bt5Temp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 180, false, "%.1f°C", bt5Temp);
       }
 
       Brain.Screen.setPenColor(white);
@@ -514,64 +503,36 @@ void usercontrol(void) {
     brainUI();
     
        if(Controller.ButtonRight.PRESSED){
-      turnPID(180, 1);
+     // turnPID(180, 1);
     }
     if(Controller.ButtonLeft.PRESSED){
-      printf("%.2f\n", InertialSensor.heading());
+      //printf("%.2f\n", InertialSensor.heading());
     }
    
    if(Controller.ButtonUp.pressing()){
-    drivePath(square, 4);
+   // drivePath(square, 4);
    }
     if(Controller.ButtonR2.pressing()){
-      blockTrack1.spin(forward, 12, volt);
-      blockTrack2.spin(forward, 12, volt);
-      blockTrack3.spin(forward, 12, volt);
-      blockTrack4.spin(forward, 12, volt);
-    }
-    else if(Controller.ButtonL2.pressing()){
-      blockTrack1.spin(reverse, 12, volt);
-      blockTrack2.spin(reverse, 12, volt);
-      blockTrack3.spin(reverse, 12, volt);
-      blockTrack4.spin(reverse, 12, volt);
+     blockTrack.spin(forward, 12, volt);
     }
     else if(Controller.ButtonR1.pressing()){
-      blockTrack1.spin(forward, 12, volt);
-      blockTrack2.spin(forward, 12, volt);
-      blockTrack3.spin(reverse, 12, volt);
-      blockTrack4.spin(reverse, 12, volt);
+     blockTrack.spin(reverse, 12, volt);
     }
     else if(Controller.ButtonL1.pressing()){
-      blockTrack1.spin(forward, 12, volt);
-      if(midBlockDist.objectDistance(mm)>=150){
-        blockTrack2.spin(forward, 12, volt);
-      }
-      else if(midBlockDist.objectDistance(mm)<150 && topBlockDist.objectDistance(mm)<150){
-        blockTrack2.stop(hold);
-            }
-      if(topBlockDist.objectDistance(mm)>=120){
-        blockTrack3.spin(forward, 12, volt);
-      }
-      else if(topBlockDist.objectDistance(mm)<120){
-        blockTrack3.stop(hold);
-        }
-      }
-      else{
-        blockTrack1.stop();
-        blockTrack2.stop();
-        blockTrack3.stop();
-        blockTrack4.stop();
-      }
-
-      if(Controller.ButtonX.PRESSED){
+     blockTrack1.spin(forward, 12, volt);
+      blockTrack2.spin(forward, 12, volt);
+      blockTrack3.spin(forward, 12, volt);
+      blockTrack4.spin(reverse, 12, volt);
+      blockTrack5.spin(reverse, 12, volt);
+    }
+    else{
+     blockTrack.stop();
+    }
+      if(Controller.ButtonX.PRESSED || Controller.ButtonA.PRESSED){
 
       unloader.set(!unloader.value());
 
       }
-      if(Controller.ButtonA.PRESSED){
-      unloader.set(!unloader.value());
-      }
-    
     
       wait(10, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.

@@ -152,12 +152,17 @@ void setVelocity(int velocity) {
 void turnPID(int targetAngle, int tolerance) {
 
   double kP = 0.3;  
-  double kI = 0.008;
-  double kD = 2.6; 
+  double kI = 0.00;//0.008
+  double kD = 0;//2.6 
   double integral = 0;
   double previousError = 0;
   double currentAngle = InertialSensor.heading();
   double error = targetAngle - currentAngle;
+  
+  if (error > 180) error -= 360;
+  if (error < -180) error += 360;
+  
+  previousError = error;
 
   while (abs(error) > tolerance) {
     currentAngle = InertialSensor.heading();
@@ -187,15 +192,15 @@ void turnPID(int targetAngle, int tolerance) {
     if (output > 12) output = 12;
     if (output < -12) output = -12;
     
-    leftDrive.spin(reverse, output, volt);
-    rightDrive.spin(forward, -output, volt);
-    
+   // leftDrive.spin(forward, output, volt);
+   // rightDrive.spin(forward, -output, volt);
+   printf("Output: %.2f, heading: %.2f\n", output, currentAngle); 
     previousError = error;
     wait(10, msec);
   }
 
-  leftDrive.stop(brake);
-  rightDrive.stop(brake);
+  //leftDrive.stop(brake);
+  //rightDrive.stop(brake);
 
 }
 
@@ -205,12 +210,27 @@ void driveTicks(double inches){
   rightDrive.spinFor(ticks, vex::rotationUnits::raw);
 }
 
-void driveReverse(int degreeNum) {
+void drive(int degreeNum, int dir) {
+  if(dir == 0){
+    leftDrive.spinFor(forward, degreeNum, degrees, false);
+    rightDrive.spinFor(forward, degreeNum, degrees);
+  }
+  else{
+    leftDrive.spinFor(reverse, degreeNum, degrees, false);
+    rightDrive.spinFor(reverse, degreeNum, degrees);}
+  }
 
+void turn(int degreeNum, int dir){
+
+  if(dir == 0){
     leftDrive.spinFor(forward, degreeNum, degrees, false);
     rightDrive.spinFor(reverse, degreeNum, degrees);
-
   }
+  else{
+    leftDrive.spinFor(reverse, degreeNum, degrees, false);
+    rightDrive.spinFor(forward, degreeNum, degrees);}
+
+}
 
 void driveToPoint(int x, int y) {
   double deltaX = x - robotX;
@@ -525,13 +545,44 @@ void autonomous(void) {
   driveForward(30);
   scoreTop();  
   */
- setVelocity(40);
- driveTicks(5);
+ descore.set(true);
+ unloader.set(false);
+  setVelocity(70);
+ drive(200, 1);
+ turn(130, 1);
+ blockTrack1.spin(forward, 12, volt);
+ blockTrack2.spin(forward, 12, volt);
+ blockTrack3.spin(forward, 12, volt);
+ blockTrack4.spin(forward, 12, volt);
+ blockTrack5.stop(brake);
+ setVelocity(70);
+ drive(400, 1);
+ setVelocity(30);
+ drive(855, 1);
+ //After picking up first three balls:
+ turn(370, 0);
+  setVelocity(60);
+ drive(650, 1);
+ blockTrack3.spin(reverse,12, volt);
+ blockTrack2.spin(reverse,12, volt);
+ blockTrack1.spin(reverse,6, volt);
+ wait(1.5, sec);
+  blockTrack1.stop();
+  blockTrack2.stop();
+  blockTrack3.stop();
+  blockTrack1.spin(forward,12, volt);
+//After attempting to score first ball:
+  setVelocity(70);
+  drive(2000, 0);
+  setVelocity(30);
+  turn(420, 0);
+  blockTrack.stop();
+  drive(1200, 0); 
+
 }
 
 void usercontrol(void) {
-      descore.set(true);
-
+  
   while (1) {
     if(!calibrated){
       InertialSensor.calibrate();
@@ -554,10 +605,10 @@ void usercontrol(void) {
     brainUI();
 
     if(Controller.ButtonRight.pressing()){
-      // turnPID(180, 1);
+       turnPID(180, 1);
     }
     if(Controller.ButtonLeft.pressing()){
-      //printf("%.2f\n", InertialSensor.heading());
+      printf("%.2f\n", InertialSensor.heading());
     }
 
     if(Controller.ButtonUp.pressing()){
@@ -580,7 +631,7 @@ void usercontrol(void) {
       blockTrack3.spin(forward, 12, volt);
       blockTrack4.spin(forward, 12, volt);
       blockTrack5.stop(brake);
-      
+      /** 
       if(topBlock && midTwoBlock && midOneBlock && intakeBlock){
         blockTrack1.stop(brake);
         blockTrack2.stop(brake);
@@ -595,8 +646,9 @@ void usercontrol(void) {
    //     blockTrack4.stop(brake);
       } else if(topBlock){
         //blockTrack4.stop(brake);
-      }
       
+        }
+      */
     } else {
       blockTrack.stop();
     }
@@ -628,3 +680,4 @@ int main() {
     wait(100, msec);
   }
 }
+

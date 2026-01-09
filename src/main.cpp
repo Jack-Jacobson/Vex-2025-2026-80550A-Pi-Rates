@@ -547,7 +547,7 @@ void autonomous(void) {
   */
  descore.set(true);
  unloader.set(false);
-  setVelocity(70);
+  setVelocity(40);
  drive(200, 1);
  turn(130, 1);
  blockTrack1.spin(forward, 12, volt);
@@ -555,29 +555,39 @@ void autonomous(void) {
  blockTrack3.spin(forward, 12, volt);
  blockTrack4.spin(forward, 12, volt);
  blockTrack5.stop(brake);
- setVelocity(70);
+ setVelocity(20);
  drive(400, 1);
- setVelocity(30);
- drive(855, 1);
+ setVelocity(20);
+ drive(835, 1);
  //After picking up first three balls:
  turn(370, 0);
-  setVelocity(60);
- drive(650, 1);
+  setVelocity(40);
+ drive(750, 1);
+ wait(1.5, sec);
  blockTrack3.spin(reverse,12, volt);
  blockTrack2.spin(reverse,12, volt);
- blockTrack1.spin(reverse,6, volt);
- wait(1.5, sec);
+ blockTrack1.spin(reverse,5, volt);
+ wait(1.22, sec);
   blockTrack1.stop();
   blockTrack2.stop();
   blockTrack3.stop();
   blockTrack1.spin(forward,12, volt);
 //After attempting to score first ball:
-  setVelocity(70);
-  drive(2000, 0);
+  blockTrack1.spin(forward, 12, volt);
+ blockTrack2.spin(forward, 12, volt);
+ blockTrack3.spin(forward, 12, volt);
+ blockTrack4.spin(forward, 12, volt);
+  setVelocity(40);
+  drive(2080, 0);
   setVelocity(30);
   turn(420, 0);
-  blockTrack.stop();
-  drive(1200, 0); 
+  drive(710, 0);
+  turn(500, 0); 
+  leftDrive.setTimeout(1,sec);
+  rightDrive.setTimeout(1,sec);
+  drive(850, 0);
+ blockTrack5.spin(forward, 12, volt);
+
 
 }
 

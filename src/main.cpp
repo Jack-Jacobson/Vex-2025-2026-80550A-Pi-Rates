@@ -271,6 +271,7 @@ void updateDriveSpeed(void){
   
   printf("Temp Target Heading: %.2f\n", tempTargetHeading);
   double forwardVal = -Controller.Axis3.position();
+  double turnVal = Controller.Axis1.position();
   if(Controller.Axis1.position()<-50){
     tempTargetHeading -=0.1;
   }
@@ -282,7 +283,8 @@ void updateDriveSpeed(void){
   while (tempTargetHeading >= 360) tempTargetHeading -= 360;
   while (tempTargetHeading < 0) tempTargetHeading += 360;
   
-  double turnPower = turnPID(tempTargetHeading);
+  //double turnPower = turnPID(tempTargetHeading);
+  double turnPower = turnVal * 0.12;
   double forwardVoltage = forwardVal * 0.12;
   
   double leftVoltage = forwardVoltage + turnPower;

@@ -186,7 +186,8 @@ void setVelocity(int velocity) {
 
   }
 
-void drive(int degreeNum, int dir) {
+
+  void drive(int degreeNum, int dir) {
   if(dir == 0){
     leftDrive.spinFor(forward, degreeNum, degrees, false);
     rightDrive.spinFor(forward, degreeNum, degrees);

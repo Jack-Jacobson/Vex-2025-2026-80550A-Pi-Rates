@@ -1,11 +1,11 @@
-#include “vex.h”
+#include "vex.h"
 #include <iostream>
 #include <cstring>
 #include <cmath>
 #include <functional>
-#include vector
+#include <vector>
 
-using namespace Vex
+using namespace vex;
 
 brain Brain;
 controller Controller;
@@ -16,51 +16,51 @@ optical topColor = optical(PORT17, false);
 
 motor frontLeftDrive = motor(PORT4, ratio6_1, false);
 motor middleLeftDrive = motor(PORT5, ratio6_1, true);
-motor frontBackDrive = motor(PORT3, ratio6_1, false);
+motor backLeftDrive = motor(PORT3, ratio6_1, false);
 motor_group leftDrive = motor_group(frontLeftDrive, middleLeftDrive, backLeftDrive);
 
 motor frontRightDrive = motor(PORT2, ratio6_1, true);
-motor middleLeftDrive = motor(PORT6, ratio6_1, false);
-motor frontBackDrive = motor(PORT1, ratio6_1, true);
+motor middleRightDrive = motor(PORT6, ratio6_1, false);
+motor backRightDrive = motor(PORT1, ratio6_1, true);
 motor_group rightDrive = motor_group(frontRightDrive, middleRightDrive, backRightDrive);
 
 double degreesToMM(double degrees){
-	return mmTraveled = 0.702*degrees
+	return 0.702*degrees;
 }
 
 void preAuton (void){
 InertialSensor.calibrate();
-printf (“Pre-auton complete”);
+printf ("Pre-auton complete");
 
 }
-double TurnIntegral = 0.0;
+double turnIntegral = 0.0;
 double turnPrevError = 0.0;
 double driveIntegral = 0.0;
 double drivePrevError = 0.0;
 
 double turnPID2(double targetHeading, int timeLimit = 0){
 	double kP = 0.37;
-	doublekI = 0.012;
+	double kI = 0.012;
 	double kD = 3;
 
-	tunrIntegral = 0.0
+	turnIntegral = 0.0;
 turnPrevError = 0.0;
 int settledTime = 0;
-const int required settledTime = 50;
+const int requiredSettledTime = 50;
 int elapsedTime = 0;
 
 double currentHeading = InertialSensor.heading();
 
 double initialError = targetHeading - currentHeading;
-while(inertialError>180)error-=360;
-while(error<-180)error+=360;
+while(initialError>180)initialError-=360;
+while(initialError<-180)initialError+=360;
 turnPrevError = initialError;
 
-while(settledTime<requiredSettledTime ** (timeLimit == 0 || elapsedTime < timeLimit)){
+while(settledTime<requiredSettledTime && (timeLimit == 0 || elapsedTime < timeLimit)){
 
 double currentHeading = InertialSensor.heading();
 double error = targetHeading-currentHeading;
-while(inertialError>180)error-=360;
+while(error>180)error-=360;
 while(error<-180)error+=360;
 
 if(fabs(error)<20){
@@ -73,15 +73,15 @@ if (turnIntegral<-50) turnIntegral = -50;
 double derivative = error-turnPrevError;
 double power = (kP*error)+(kI*turnIntegral)+(kD*derivative);
 if (power>12.0)power=12.0;
-if(power<-12.0)power-12.0;
+if(power<-12.0)power=-12.0;
 
 if(fabs(power)<1.7 && fabs(error)>1.0){
-power = (power>0) ? 1.7:-1.7
+power = (power>0) ? 1.7:-1.7;
 }
 
 if(fabs(error)<1.0){
 power=0;
-turnInegral = 0;
+turnIntegral = 0;
 settledTime +=5;
 }else{settledTime = 0;}
 rightDrive.spin(forward, power, volt);
@@ -99,21 +99,21 @@ rightDrive.stop(brake);
 return 0.0;
 }
 
-voidSetVelocity(int velocity){
+void SetVelocity(int velocity){
 leftDrive.setVelocity(velocity,percent);
-rightDrive.setVelocity(velocity,percent):
+rightDrive.setVelocity(velocity,percent);
 }
 void drive (int degreeNum, int dir){
 
-if(dir === 0){
+if(dir == 0){
 
 leftDrive.spin(reverse, degreeNum, degrees, false);
 rightDrive.spin(reverse, degreeNum, degrees);
 
 }
 else{
-leftDrive.spin( degreeNum, degrees, false);
-rightDrive.spin( degreeNum, degrees);
+leftDrive.spin(forward, degreeNum, degrees, false);
+rightDrive.spin(forward, degreeNum, degrees);
 }
 
 }
@@ -121,10 +121,10 @@ rightDrive.spin( degreeNum, degrees);
 double trapezoid(double currentPosition, double targetDistance, double maxVelocity, double acceleration){
 double accelDistance = (maxVelocity*maxVelocity)/(2.0*acceleration);
 double decelDistance = accelDistance*2;
-double DistToTarget = fabs(targetDistances)-fabs(currentPosition);
+double DistToTarget = fabs(targetDistance)-fabs(currentPosition);
 
 double cruiseDistance = fabs(targetDistance) - accelDistance - decelDistance;
-double absPosition - fabs(currentPosition);
+double absPosition = fabs(currentPosition);
 double velocity = 0;
 double currentVelocity = (absPosition-prevDistance)*0.2;
 
@@ -133,25 +133,24 @@ if(absPosition<accelDistance){
 velocity = sqrt(2.0*acceleration * absPosition);
 if(velocity>maxVelocity) velocity = maxVelocity;
 if(velocity<MIN_VELOCITY) velocity = MIN_VELOCITY;
-printf(“ACCELERATING, currentVelocity %.2f mm/s, targetVelocity: %.2f mm/s\n”, currentVelocity, velocity)
+printf("ACCELERATING, currentVelocity %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
+}
 if(absPosition>=accelDistance&&absPosition<accelDistance+cruiseDistance){
 velocity=maxVelocity;
-printf(“CRUISING, currentVelocity %.2f mm/s, targetVelocity: %.2f mm/s\n”, currentVelocity, velocity)
+printf("CRUISING, currentVelocity %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
 }
 if(absPosition>accelDistance+cruiseDistance){
 double distanceRemaining = fabs(targetDistance)-absPosition;
 velocity = sqrt(2.0*acceleration*distanceRemaining)/4.0;
 
 if(velocity<0)velocity=0;
-printf(“DECCELERATING, currentVelocity %.2f mm/s, targetVelocity: %.2f mm/s\n”, currentVelocity, velocity);
+printf("DECCELERATING, currentVelocity %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
 
 }
 prevDistance = absPosition; 
 
-}
-
-return velocity;
 wait(20, msec);
+return velocity;
 
 }
 void trapDrive(double targetDistance, double maxVelocity, double acceleration, bool reverse = false){
@@ -159,8 +158,8 @@ void trapDrive(double targetDistance, double maxVelocity, double acceleration, b
 leftDrive.setPosition(0, degrees);
 rightDrive.setPosition(0, degrees);
 while(true){
-double leftAvg = (fabs(frontLeftDrive.position(degrees))+fabs(middleLeftDrive.position(degrees))+fabs(backLeftDrive.position(degrees))/3.0;
-double right Avg = (fabs(frontRightDrive.position(degrees))+fabs(middleRightDrive.position(degrees))+fabs(backRightDrive.position(degrees))/3.0;
+double leftAvg = (fabs(frontLeftDrive.position(degrees))+fabs(middleLeftDrive.position(degrees))+fabs(backLeftDrive.position(degrees)))/3.0;
+double rightAvg = (fabs(frontRightDrive.position(degrees))+fabs(middleRightDrive.position(degrees))+fabs(backRightDrive.position(degrees)))/3.0;
 
 double motorDegrees = (leftAvg+rightAvg)/2.0;
 double currentPosition_mm = degreesToMM(motorDegrees);
@@ -195,17 +194,17 @@ trapDrive(100, 500, 500, true);
 wait(0.5,sec);
 turnPID2(225);
 trapDrive(335, 300, 350, true);
-wait(0.5, seec);
+wait(0.5, sec);
 lowBlockTrack.stop();
 unloader.set(false);
 trapDrive(600, 300, 350, true);
 wait(0.5, sec);
 turnPID2(180);
-wait(0.5, sec):
-trapDrive(800, 300, 350, true(:
+wait(0.5, sec);
+trapDrive(800, 300, 350, true);
 wait(0.5, sec);
 turnPID2(165);
-lifeDrive.stop(coast);
+leftDrive.stop(coast);
 rightDrive.stop(coast);
 }
 
@@ -215,4 +214,4 @@ preAuton();
 while(true){
 wait(100, msec);
 }
-};
+}

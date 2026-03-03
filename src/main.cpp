@@ -265,10 +265,18 @@ double trapezoidsAreYucky(double currentPosition, double targetDistance, double 
   wait(20, msec); 
 }
 
-void trapDrive(double targetDistance, double maxVelocity, double acceleration, bool reverse = false) {
+void trapDrive(double targetDistance, double maxVelocity, double acceleration, bool reverse = false, int timeout = 0) {
   leftDrive.setPosition(0, degrees);
   rightDrive.setPosition(0, degrees);
+  int elapsedTime = 0;
   while(true) {
+        // Check timeout
+        if (timeout > 0 && elapsedTime >= timeout) {
+          leftDrive.stop(brake);
+          rightDrive.stop(brake);
+          return;
+        }
+
         // Get average position from all 6 motors for accuracy
         double leftAvg = (fabs(frontLeftDrive.position(degrees)) + 
                          fabs(middleLeftDrive.position(degrees)) + 
@@ -277,12 +285,7 @@ void trapDrive(double targetDistance, double maxVelocity, double acceleration, b
                           fabs(middleRightDrive.position(degrees)) + 
                           fabs(backRightDrive.position(degrees))) / 3.0;
         double motorDegrees = (leftAvg + rightAvg) / 2.0;
-        // printf("Front Left Drive Degrees: %.2f\n", tempPosition);
         double currentPosition_mm = degreesToMM(motorDegrees);
-        // printf("Current Position in mm: %.2f\n", currentPosition_mm);
-        
-        // Debug: print raw motor degrees
-       // printf("Motor degrees: %.2f, Converted to mm: %.2f\n", motorDegrees, currentPosition_mm);
         
         if (currentPosition_mm >= targetDistance) break;
         
@@ -296,30 +299,35 @@ void trapDrive(double targetDistance, double maxVelocity, double acceleration, b
           rightDrive.spin(forward, targetVelocity_mmps*0.06, volt);
         }
         wait(10, msec);
+        elapsedTime += 10;
       }
       
-      // Stop when button released or target reached
+      // Stop when target reached
       leftDrive.stop(brake);
       rightDrive.stop(brake);
 }
 
 
 void autonomous(void) {
+//Initialization 
 InertialSensor.setHeading(90, degrees);
-trapDrive(622, 300, 350);
+
+//Aligns with and descores from matchloader1
+trapDrive(655, 300, 350);
 wait(0.5, sec);
 turnPID2(180);
 trapDrive(100, 300, 350,true);
-  unloader.set(true);
-
+unloader.set(true);
 wait(1, sec);
 lowBlockTrack.spin(forward, 12, volt);
-trapDrive(220, 700, 500);
+trapDrive(250, 700, 500, false, 1000);
 wait(2, sec);
-trapDrive(100, 500, 580, true);
+trapDrive(105, 500, 580, true);
 wait(0.5, sec);
+
+//Aligns with and drives through alley
 turnPID2(225);
-trapDrive(335, 300, 350,true);
+trapDrive(325, 300, 350,true);
 wait(0.5, sec);
 turnPID2(180);
 wait(0.5, sec);
@@ -331,9 +339,49 @@ turnPID2(180);
 wait(0.5, sec);
 trapDrive(800, 300, 350, true);
 wait(0.5, sec);
-turnPID2(165);  
+
+//Aligns with and scores on longGoal1
+turnPID2(165, 1000); 
+wait(0.5, seconds);
+trapDrive(280, 300, 350, true, 1000);
+wait(0.5, seconds);
+turnPID2(90);
+trapDrive(250, 300, 350, true);
+wait(0.5, seconds);
+turnPID2(0.1,1000);
+wait(1, seconds);
+trapDrive(600, 100, 100, true, 1000);
+lowBlockTrack.spin(reverse, 12, volt);
+wait(0.17, seconds);
+lowBlockTrack.spin(forward, 12, volt);
+highBlockTrack.spin(forward, 12, volt);
+wait(3, seconds);
+highBlockTrack.stop();
+lowBlockTrack.stop();
+
+//Aligns with and descores from matchloader2
+trapDrive(70, 300, 350);
+wait(0.5, seconds);
+turnPID2(0.1, 500);
+lowBlockTrack.spin(forward, 12, volt);
+unloader.set(true);
+trapDrive(590, 100, 150, false, 1000);
+trapDrive(20, 100, 160, false, 200);
+wait(2, seconds);
+
+//Aligns with and scores again on longGoal1
+trapDrive(70, 300, 350, true);
+wait(0.5, seconds);
+turnPID2(0.1, 1000);
+trapDrive(580, 300, 350, true, 1000);
+lowBlockTrack.spin(reverse, 12, volt);
+wait(0.15, seconds);
+lowBlockTrack.spin(forward, 12, volt);
+highBlockTrack.spin(forward, 12, volt);
 leftDrive.stop();
 rightDrive.stop();
+
+
 
 }
 

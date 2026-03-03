@@ -1,3 +1,4 @@
+
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*    Module:       main.cpp                                                  */
@@ -107,7 +108,7 @@ double turnPrevError = 0.0;
 double driveIntegral = 0.0;
 double drivePrevError = 0.0;
 
-double turnPID2(double targetHeading, int timeLimit = 0) {
+double turnPID2(double targetHeading, int timeLimit = 1500) {
   double kP = 0.37;
   double kI = 0.012;
   double kD = 3;
@@ -264,6 +265,7 @@ double trapezoidsAreYucky(double currentPosition, double targetDistance, double 
   return velocity;  // Returns mm/s
   wait(20, msec); 
 }
+
 void trapDrive(double targetDistance, double maxVelocity, double acceleration, bool reverse = false, int timeout = 0) {
   leftDrive.setPosition(0, degrees);
   rightDrive.setPosition(0, degrees);
@@ -307,50 +309,80 @@ void trapDrive(double targetDistance, double maxVelocity, double acceleration, b
 }
 
 
-
-
 void autonomous(void) {
+//Initialization 
 InertialSensor.setHeading(90, degrees);
-trapDrive(622, 300, 350);
+
+//Aligns with and descores from matchloader1
+trapDrive(655, 300, 350);
 wait(0.5, sec);
 turnPID2(180);
 trapDrive(100, 300, 350,true);
-  unloader.set(true);
-
+unloader.set(true);
 wait(1, sec);
 lowBlockTrack.spin(forward, 12, volt);
-trapDrive(215, 700, 500, false, 1500);
+trapDrive(250, 700, 500, false, 1000);
 wait(2, sec);
-trapDrive(100, 500, 580, true);
+trapDrive(105, 500, 580, true);
 wait(0.5, sec);
-turnPID2(225);
-trapDrive(335, 300, 350,true);
+
+//Aligns with and drives through alley
+turnPID2(225, 1000);
+trapDrive(325, 300, 350,true);
 wait(0.5, sec);
-turnPID2(180);
+turnPID2(180, 1000);
 wait(0.5, sec);
 lowBlockTrack.stop();
 unloader.set(false);
 trapDrive(600, 300, 350, true);
 wait(0.5, sec);
-turnPID2(180);
+turnPID2(180, 300);
 wait(0.5, sec);
 trapDrive(800, 300, 350, true);
 wait(0.5, sec);
-turnPID2(165);  
+
+//Aligns with and scores on longGoal1
+turnPID2(165, 1000); 
 wait(0.5, seconds);
-trapDrive(280, 300, 350, true);
+trapDrive(280, 300, 350, true, 1000);
 wait(0.5, seconds);
 turnPID2(90);
-trapDrive(205, 300, 350, true);
+trapDrive(230, 300, 350, true);
 wait(0.5, seconds);
-turnPID2(0);
-trapDrive(600, 300, 350, true, 1000);
+turnPID2(0,1000);
+wait(1, seconds);
+trapDrive(600, 100, 100, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
-wait(0.1, seconds);
+wait(0.17, seconds);
+lowBlockTrack.spin(forward, 12, volt);
+highBlockTrack.spin(forward, 12, volt);
+wait(3, seconds);
+highBlockTrack.stop();
+lowBlockTrack.stop();
+
+//Aligns with and descores from matchloader2
+trapDrive(70, 100, 150, 300);
+wait(0.5, seconds);
+turnPID2(0, 500);
+lowBlockTrack.spin(forward, 12, volt);
+unloader.set(true);
+trapDrive(590, 100, 50, false, 1000);
+trapDrive(20, 100, 50, false, 200);
+wait(2, seconds);
+
+//Aligns with and scores again on longGoal1
+trapDrive(45, 200, 150, true, 300);
+wait(0.5, seconds);
+turnPID2(0, 500);
+trapDrive(580, 200, 150, true, 1000);
+lowBlockTrack.spin(reverse, 12, volt);
+wait(0.15, seconds);
 lowBlockTrack.spin(forward, 12, volt);
 highBlockTrack.spin(forward, 12, volt);
 leftDrive.stop();
 rightDrive.stop();
+
+
 
 }
 

@@ -26,6 +26,9 @@ inertial InertialSensor = inertial(PORT20);
 
 optical topColor = optical(PORT17, false);
 
+distance rightDist = distance(PORT19);
+distance leftDist = distance(PORT18);
+
 motor frontLeftDrive = motor(PORT4, ratio6_1, false);
 motor middleLeftDrive = motor(PORT5, ratio6_1, true);
 motor backLeftDrive = motor(PORT3, ratio6_1, false);
@@ -44,7 +47,6 @@ motor highBlockTrack = motor(PORT15, ratio6_1, true);
 digital_out unloader = digital_out(Brain.ThreeWirePort.A);
 digital_out descore = digital_out(Brain.ThreeWirePort.H);
 
-// define your global instances of motors and other devices here
 
 // Motion control constants
 const double WHEEL_DIAMETER_MM = 1;  // actual 69.85 .75 inch wheels
@@ -165,7 +167,7 @@ double turnPID2(double targetHeading, int timeLimit = 1500) {
     leftDrive.spin(reverse, power, volt);
     
     turnPrevError = error;
-    printf("Error %.2f, power %.2f, heading %.2f (raw: %.2f), target %.2f, settled %dms\n", error, power, currentHeading, InertialSensor.heading(), targetHeading, settledTime);
+    // printf("Error %.2f, power %.2f, heading %.2f (raw: %.2f), target %.2f, settled %dms\n", error, power, currentHeading, InertialSensor.heading(), targetHeading, settledTime);
     
     wait(5, msec);
     elapsedTime += 5;
@@ -239,12 +241,12 @@ double trapezoidsAreYucky(double currentPosition, double targetDistance, double 
     velocity = sqrt(2.0 * acceleration * absPosition);
     if (velocity > maxVelocity) velocity = maxVelocity;
     if (velocity < MIN_VELOCITY) velocity = MIN_VELOCITY;  // Minimum to start moving
-    printf("ACCELERATING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
+    // printf("ACCELERATING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
   } 
    if (absPosition > accelDistance && absPosition < accelDistance + cruiseDistance) {
     // CRUISE: constant max velocity
     velocity = maxVelocity;
-    printf("CRUISING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
+    // printf("CRUISING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
   } 
 
    if (absPosition > accelDistance + cruiseDistance) {
@@ -253,7 +255,7 @@ double trapezoidsAreYucky(double currentPosition, double targetDistance, double 
     velocity = sqrt(2.0 * acceleration * distanceRemaining)/4.0;
 
     if (velocity < 0) velocity = 0;  // Minimum to keep moving
-    printf("DECELERATING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
+    // printf("DECELERATING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
   }
   // printf("Current Position: %.2f mm, Distance to Target: %.2f mm\n, accel", currentPosition, distToTarget);
   // printf("Accel Distance: %.2f mm, Cruise Distance: %.2f mm, Decel Distance: %.2f mm\n", accelDistance, cruiseDistance, decelDistance);
@@ -266,6 +268,24 @@ double trapezoidsAreYucky(double currentPosition, double targetDistance, double 
   wait(20, msec); 
 }
 
+double calcAngle(void){
+
+return -1 * (atan((rightDist.objectDistance(mm)-480 )/590)) * (180.0 / M_PI);
+
+}
+
+double calcAngle2(void){
+
+  double targetWallDist = 110;
+  double distFrom180 = 180-InertialSensor.heading();
+double tempVal = atan(targetWallDist-leftDist.objectDistance(mm)/700);
+double tempValDegree  = tempVal * (180.0 / M_PI);
+double correctedValue = tempValDegree+distFrom180;
+printf("tempVal: %.2f, distFrom180: %.2f\n", tempVal, distFrom180);
+
+return correctedValue;
+
+}
 void trapDrive(double targetDistance, double maxVelocity, double acceleration, bool reverse = false, int timeout = 0) {
   leftDrive.setPosition(0, degrees);
   rightDrive.setPosition(0, degrees);
@@ -322,6 +342,7 @@ unloader.set(true);
 wait(1, sec);
 lowBlockTrack.spin(forward, 12, volt);
 trapDrive(250, 700, 500, false, 1000);
+drive(20, 1);
 wait(2, sec);
 trapDrive(105, 500, 580, true);
 wait(0.5, sec);
@@ -334,23 +355,22 @@ turnPID2(180, 1000);
 wait(0.5, sec);
 lowBlockTrack.stop();
 unloader.set(false);
-trapDrive(600, 300, 350, true);
+trapDrive(700, 300, 350, true);
 wait(0.5, sec);
 turnPID2(180, 300);
 wait(0.5, sec);
-trapDrive(800, 300, 350, true);
+calcAngle2();
+trapDrive(700, 300, 350, true);
 wait(0.5, sec);
 
 //Aligns with and scores on longGoal1
 turnPID2(165, 1000); 
-wait(0.5, seconds);
 trapDrive(280, 300, 350, true, 1000);
-wait(0.5, seconds);
+wait(0.5, sec);
 turnPID2(90);
-trapDrive(230, 300, 350, true);
+trapDrive(200, 300, 350, true);
 wait(0.5, seconds);
 turnPID2(0,1000);
-wait(1, seconds);
 trapDrive(600, 100, 100, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
 wait(0.17, seconds);
@@ -361,27 +381,35 @@ highBlockTrack.stop();
 lowBlockTrack.stop();
 
 //Aligns with and descores from matchloader2
-trapDrive(70, 100, 150, 300);
+trapDrive(150, 100, 150, false, 1000);
 wait(0.5, seconds);
 turnPID2(0, 500);
 lowBlockTrack.spin(forward, 12, volt);
 unloader.set(true);
-trapDrive(590, 100, 50, false, 1000);
+trapDrive(510, 100, 50, false, 1000);
 trapDrive(20, 100, 50, false, 200);
 wait(2, seconds);
 
 //Aligns with and scores again on longGoal1
-trapDrive(45, 200, 150, true, 300);
+trapDrive(150, 200, 150, true, 300);
 wait(0.5, seconds);
-turnPID2(0, 500);
-trapDrive(580, 200, 150, true, 1000);
+turnPID2(4, 500);
+trapDrive(490, 200, 150, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
 wait(0.15, seconds);
 lowBlockTrack.spin(forward, 12, volt);
 highBlockTrack.spin(forward, 12, volt);
-leftDrive.stop();
-rightDrive.stop();
+wait(3, seconds);
 
+//Resets on wall
+unloader.set(false);
+trapDrive(90, 300, 350, false, 1000);
+wait(0.5, seconds);
+turnPID2(30, 1000);
+leftDrive.setTimeout(2, sec);
+rightDrive.setTimeout(2, sec);
+setVelocity(90);
+drive(10000, 1);
 
 
 }

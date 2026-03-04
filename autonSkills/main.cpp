@@ -1,3 +1,65 @@
+#pragma region VEXcode Generated Robot Configuration
+// Make sure all required headers are included.
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <string.h>
+
+
+#include "vex.h"
+
+using namespace vex;
+
+// Brain should be defined by default
+brain Brain;
+
+
+// START V5 MACROS
+#define waitUntil(condition)                                                   \
+  do {                                                                         \
+    wait(5, msec);                                                             \
+  } while (!(condition))
+
+#define repeat(iterations)                                                     \
+  for (int iterator = 0; iterator < iterations; iterator++)
+// END V5 MACROS
+
+
+// Robot configuration code.
+
+
+
+// generating and setting random seed
+void initializeRandomSeed(){
+  int systemTime = Brain.Timer.systemHighResolution();
+  double batteryCurrent = Brain.Battery.current();
+  double batteryVoltage = Brain.Battery.voltage(voltageUnits::mV);
+
+  // Combine these values into a single integer
+  int seed = int(batteryVoltage + batteryCurrent * 100) + systemTime;
+
+  // Set the seed
+  srand(seed);
+}
+
+
+
+void vexcodeInit() {
+
+  //Initializing random seed.
+  initializeRandomSeed(); 
+}
+
+
+// Helper to make playing sounds from the V5 in VEXcode easier and
+// keeps the code cleaner by making it clear what is happening.
+void playVexcodeSound(const char *soundName) {
+  printf("VEXPlaySound:%s\n", soundName);
+  wait(5, msec);
+}
+
+#pragma endregion VEXcode Generated Robot Configuration
 
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
@@ -368,9 +430,9 @@ turnPID2(165, 1000);
 trapDrive(280, 300, 350, true, 1000);
 wait(0.5, sec);
 turnPID2(90);
-trapDrive(200, 300, 350, true);
+trapDrive(190, 300, 350, true);
 wait(0.5, seconds);
-turnPID2(0,1000);
+turnPID2(4,1000);
 trapDrive(600, 100, 100, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
 wait(0.17, seconds);
@@ -410,6 +472,16 @@ leftDrive.setTimeout(2, sec);
 rightDrive.setTimeout(2, sec);
 setVelocity(90);
 drive(10000, 1);
+lowBlockTrack.stop();
+highBlockTrack.stop();
+trapDrive(300, 300, 350, true, 500);
+wait(0.5, seconds);
+turnPID2(20, 10000);
+trapDrive(200, 300, 350, true);
+turnPID2(90);
+trapDrive(500, 300, 350, true, 1500);
+wait(0.5, sec);
+turnPID2(225);
 
 
 }

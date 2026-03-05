@@ -1,11 +1,3 @@
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*    Module:       main.cpp                                                  */
-/*    Author:       jokin                                                     */
-/*    Created:      1/8/2026, 6:31:51 PM                                      */
-/*    Description:  V5 project                                                */
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
 #include "vex.h"
 #include <iostream>
 #include <cstring>
@@ -43,73 +35,105 @@ motor highBlockTrack = motor(PORT15, ratio6_1, true);
 digital_out unloader = digital_out(Brain.ThreeWirePort.A);
 digital_out descore = digital_out(Brain.ThreeWirePort.H);
 
-// define your global instances of motors and other devices here
+int screen = 0;
+int currentAuton = 6; // -1 = no auton, 0 = right-side, 1 = drive forward, 2 = left-side, 3 = fill low
 
-// Motion control constants
-const double WHEEL_DIAMETER_MM = 1;  // actual 69.85 .75 inch wheels
-const double GEAR_RATIO = 1;         
-                                        // Based on actual test: 550mm moved, 229mm reported
-const double MAX_MOTOR_RPM = 600;        // Blue cartridge max RPM
-const double WHEEL_CIRCUMFERENCE_MM = WHEEL_DIAMETER_MM * 1;  //replaced pi with 1 Distance per wheel rotation
+int motorStatusTimer = 0;
+bool frontLeftStatus = frontLeftDrive.installed();
+bool middleLeftStatus = middleLeftDrive.installed();
+bool backLeftStatus = backLeftDrive.installed();
+bool frontRightStatus = frontRightDrive.installed();
+bool middleRightStatus = middleRightDrive.installed();
+bool backRightStatus = backRightDrive.installed();
+bool lowBlockTrackStatus = lowBlockTrack.installed();
+bool highBlockTrackStatus = highBlockTrack.installed();
+bool topColorStatus = topColor.installed();
+bool inertialStatus = InertialSensor.installed();
+bool calibrated = false;
+bool spin1 = true;
+bool spin2 = true;
+bool spin3 = true;
+bool spin4 = true;
 
- double degreesToMM(double degrees) {
-  // printf("Degrees %.2f\n", degrees);
-  // double mmTraveled = (degrees / 360.0) * WHEEL_CIRCUMFERENCE_MM;
-    double mmTraveled = 0.702 * degrees; 
+double inchesPerTick = 0.0279;
 
-  return mmTraveled;
-}
+double robotX = 0.0;
+double robotY = 0.0;
+double robotHeading = 0.0;
+double prevLeftTicks = 0.0;
+double prevRightTicks = 0.0;
 
- double mmPerSecToRPM(double mmPerSec) {
-  double wheelRPM = (mmPerSec / WHEEL_CIRCUMFERENCE_MM) * 60.0;
-  return wheelRPM * GEAR_RATIO;
-}
-
- double mmPerSecToPercent(double mmPerSec) {
-  double motorRPM = mmPerSecToRPM(mmPerSec);
-  return (motorRPM / MAX_MOTOR_RPM) * 100.0;
-}
-
- double percentToMMPerSec(double percent) {
-  double motorRPM = (percent / 100.0) * MAX_MOTOR_RPM;
-  double wheelRPM = motorRPM / GEAR_RATIO;
-  return (wheelRPM / 60.0) * WHEEL_CIRCUMFERENCE_MM;
-}
-
-/*---------------------------------------------------------------------------*/
-/*                          Pre-Autonomous Functions                         */
-/*                                                                           */
-/*  You may want to perform some actions before the competition starts.      */
-/*  Do them in the following function.  You must return from this function   */
-/*  or the autonomous and usercontrol tasks will not be started.  This       */
-/*  function is only called once after the V5 has been powered on and        */
-/*  not every time that the robot is disabled.                               */
-/*---------------------------------------------------------------------------*/
-
-void pre_auton(void) {
- printf("Pre-autonomous setup complete.\n");
-  // All activities that occur before the competition starts
-  // Example: clearing encoders, setting servo positions, ...
-}
-
-/*---------------------------------------------------------------------------*/
-/*                                                                           */
-/*                              Autonomous Task                              */
-/*                                                                           */
-/*  This task is used to control your robot during the autonomous phase of   */
-/*  a VEX Competition.                                                       */
-/*                                                                           */
-/*  You must modify the code to add your own robot specific commands here.   */
-/*---------------------------------------------------------------------------*/
 // PID state variables
 double turnIntegral = 0.0;
 double turnPrevError = 0.0;
 double driveIntegral = 0.0;
 double drivePrevError = 0.0;
 
+void updateRobotPosition(void) {
+  double leftTicks = leftDrive.position(vex::rotationUnits::raw);
+  double rightTicks = rightDrive.position(vex::rotationUnits::raw);
+  
+  double deltaLeftTicks = leftTicks - prevLeftTicks;
+  double deltaRightTicks = rightTicks - prevRightTicks;
+  
+  double avgDeltaTicks = (deltaLeftTicks + deltaRightTicks) / 2.0;
+  double distanceTraveled = avgDeltaTicks * inchesPerTick;
+  
+  robotHeading = InertialSensor.heading();
+  
+  double headingRad = robotHeading * M_PI / 180.0;
+
+  robotX += distanceTraveled * sin(headingRad);
+  robotY += distanceTraveled * cos(headingRad);
+  
+  prevLeftTicks = leftTicks;
+  prevRightTicks = rightTicks;
+}
+
+
+double turnPID(double targetHeading) {
+  double kP = 0.85;
+  double kI = 0.00;
+  double kD = 4.5;
+  
+  double currentHeading = InertialSensor.heading();
+  double error = targetHeading - currentHeading;
+  
+  while (error > 180) error -= 360;
+  while (error < -180) error += 360;
+  
+  if (fabs(error) < 20) {
+    turnIntegral += error;
+  } else {
+    turnIntegral = 0;
+  }
+  
+  if (turnIntegral > 50) turnIntegral = 50;
+  if (turnIntegral < -50) turnIntegral = -50;
+  
+  double derivative = error - turnPrevError;
+  double power = (kP * error) + (kI * turnIntegral) + (kD * derivative);
+  
+  if (power > 12.0) power = 12.0;
+  if (power < -12.0) power = -12.0;
+  
+  if (fabs(power) < 1.5 && fabs(error) > 1.0) {
+    power = (power > 0) ? 1.5 : -1.5;
+  }
+
+  if(fabs(error)<1.0){
+    power =0;
+    turnIntegral =0;
+  }
+  
+  turnPrevError = error;
+  printf("Error %.2f, power %.2f, heading %.2f, target %.2f\n", error, power, InertialSensor.heading(), targetHeading);
+
+  return power;
+}
 double turnPID2(double targetHeading, int timeLimit = 0) {
-  double kP = 0.37;
-  double kI = 0.012;
+  double kP = 0.35;
+  double kI = 0.009;
   double kD = 3;
   
   turnIntegral = 0.0;
@@ -177,17 +201,313 @@ double turnPID2(double targetHeading, int timeLimit = 0) {
   return 0.0;
 }
 
+void driveTurn(double fwddist, double turn, double timeout = 0) {
+  double kP = 0.4;
+  double kI = 0.009;
+  double kD = 3.4;
+  
+  turnIntegral = 0.0;
+  turnPrevError = 0.0;  
+  int settledTime = 0;
+  const int requiredSettledTime = 50;
+  
+  double currentHeading = InertialSensor.heading();
+  double initialError = turn - currentHeading;
+  while (initialError > 180) initialError -= 360;
+  while (initialError < -180) initialError += 360;
+  turnPrevError = initialError;
+  
+  while (settledTime < requiredSettledTime) {
+    double currentHeading = InertialSensor.heading();
+    double error = turn - currentHeading;
+    
+    while (error > 180) error -= 360;
+    while (error < -180) error += 360;
+    
+    if (fabs(error) < 20) {
+      turnIntegral += error;
+    } else {
+      turnIntegral = 0;
+    }
+    
+    if (turnIntegral > 50) turnIntegral = 50;
+    if (turnIntegral < -50) turnIntegral = -50;
+    
+    double derivative = error - turnPrevError;
+    double power = (kP * error) + (kI * turnIntegral) + (kD * derivative);
+    
+    if (power > 12.0) power = 12.0;
+    if (power < -12.0) power = -12.0;
+    
+    if (fabs(power) < 1.7 && fabs(error) > 1.0) {
+      power = (power > 0) ? 1.7 : -1.7;
+    }
 
+    if(fabs(error) < 1.0){
+      power = 0;
+      turnIntegral = 0;
+      settledTime += 5;
+    } else {
+      settledTime = 0;
+    }
+    
+    rightDrive.spin(forward, power, volt);
+    leftDrive.spin(reverse, power, volt);
+    
+    turnPrevError = error;
+    printf("Turn Error %.2f, power %.2f, heading %.2f, target %.2f, settled %dms\n", error, power, InertialSensor.heading(), turn, settledTime);
+    
+    wait(5, msec);
+  }
+  
+  // Stop the motors after turn
+  leftDrive.stop(brake);
+  rightDrive.stop(brake);
+  
+  // Wait 0.3 seconds after turn settles
+  wait(300, msec);
+  
+  // Now drive forward/backward while maintaining angle
+  if (fwddist != 0) {
+    leftDrive.setPosition(0, vex::rotationUnits::raw);
+    rightDrive.setPosition(0, vex::rotationUnits::raw);
+    
+    double targetTicks = fwddist / inchesPerTick;
+    double driveDirection = (fwddist > 0) ? 1.0 : -1.0;
+    
+    turnIntegral = 0.0;
+    turnPrevError = 0.0;
+    
+    int startTime = Brain.Timer.time(msec);
+    
+    while (fabs((leftDrive.position(vex::rotationUnits::raw) + rightDrive.position(vex::rotationUnits::raw)) / 2.0) < fabs(targetTicks)) {
+      // Check timeout
+      if (timeout > 0 && (Brain.Timer.time(msec) - startTime) > timeout) {
+        printf("Drive timeout reached at %dms\n", Brain.Timer.time(msec) - startTime);
+        break;
+      }
+      
+      double currentHeading = InertialSensor.heading();
+      double headingError = turn - currentHeading;
+      
+      while (headingError > 180) headingError -= 360;
+      while (headingError < -180) headingError += 360;
+      
+      if (fabs(headingError) < 10) {
+        turnIntegral += headingError;
+      } else {
+        turnIntegral = 0;
+      }
+      
+      if (turnIntegral > 30) turnIntegral = 30;
+      if (turnIntegral < -30) turnIntegral = -30;
+      
+      double derivative = headingError - turnPrevError;
+      double turnCorrection = (0.3 * headingError) + (0.005 * turnIntegral) + (1.5 * derivative);
+      
+      if (turnCorrection > 4.0) turnCorrection = 4.0;
+      if (turnCorrection < -4.0) turnCorrection = -4.0;
+      
+      double basePower = 8.0;
+      
+      double leftPower = basePower + turnCorrection;
+      double rightPower = basePower - turnCorrection;
+      
+      if (driveDirection > 0) {
+        // Drive forward
+        
+        leftDrive.spin(forward, leftPower, volt);
+        rightDrive.spin(forward, rightPower, volt);
+      } else {
+        // Drive backward
+      
+        leftDrive.spin(reverse, leftPower, volt);
+        rightDrive.spin(reverse, rightPower, volt);
+      }
+      
+      turnPrevError = headingError;
+      
+      wait(5, msec);
+    }
+    
+    leftDrive.stop(brake);
+    rightDrive.stop(brake);
+  }
+}
 
+double driveForwardPID(double targetInches) {
+  double kP = 0.5;
+  double kI = 0.005;
+  double kD = 0.3;
+  
+  double targetDegrees = targetInches / ((3.25 * M_PI) / 360.0);
+  
+  double avgPosition = (leftDrive.position(degrees) + rightDrive.position(degrees)) / 2.0;
+  double error = targetDegrees - avgPosition;
+  
+  if (fabs(error) < 100) {
+    driveIntegral += error;
+  } else {
+    driveIntegral = 0;
+  }
+  
+  if (driveIntegral > 100) driveIntegral = 100;
+  if (driveIntegral < -100) driveIntegral = -100;
+  
+  double derivative = error - drivePrevError;
+  double power = (kP * error) + (kI * driveIntegral) + (kD * derivative);
+  
+  if (power > 12.0) power = 12.0;
+  if (power < -12.0) power = -12.0;
+  
+  if (fabs(power) < 2.0 && fabs(error) > 5.0) {
+    power = (power > 0) ? 2.0 : -2.0;
+  }
+  
+  drivePrevError = error;
+  
+  return power;
+}
+
+void stopDrive(brakeType mode = brake) {
+  leftDrive.stop(mode);
+  rightDrive.stop(mode);
+}
+
+void setDriveVelocity(int velocity) {
+  leftDrive.setVelocity(velocity, percent);
+  rightDrive.setVelocity(velocity, percent);
+}
+
+void drawButton(int x, int y, int w, int h, std::string t, int destination) {
+    Brain.Screen.setFillColor(black);
+    Brain.Screen.setPenColor(white);
+    Brain.Screen.drawRectangle(x, y, w, h);
+
+    int textWidth = Brain.Screen.getStringWidth(t.c_str());
+    int textHeight = Brain.Screen.getStringHeight(t.c_str());
+    int textX = x + (w - textWidth) / 2;
+    int textY = y + (h + textHeight) / 2;
+    Brain.Screen.printAt(textX, textY, false, t.c_str());
+
+    if (Brain.Screen.pressing()) {
+        int touchX = Brain.Screen.xPosition();
+        int touchY = Brain.Screen.yPosition();
+
+        if (touchX >= x && touchX <= x + w && touchY >= y && touchY <= y + h) {
+            screen = destination;
+            Brain.Screen.clearScreen();
+            return;
+        }
+    }
+}
+
+void drawAutonButton(int x, int y, int w, int h, std::string t, int autonNum, color textColor = white) {
+    Brain.Screen.setFillColor(black);
+    
+    if (currentAuton == autonNum) {
+        Brain.Screen.setPenColor(blue);
+        Brain.Screen.setPenWidth(4);
+    } else {
+        Brain.Screen.setPenColor(white);
+        Brain.Screen.setPenWidth(1);
+    }
+    
+    Brain.Screen.drawRectangle(x, y, w, h);
+    Brain.Screen.setPenWidth(1);
+
+    int textWidth = Brain.Screen.getStringWidth(t.c_str());
+    int textHeight = Brain.Screen.getStringHeight(t.c_str());
+    int textX = x + (w - textWidth) / 2;
+    int textY = y + (h + textHeight) / 2;
+    
+    Brain.Screen.setPenColor(textColor);
+    Brain.Screen.printAt(textX, textY, false, t.c_str());
+
+    if (Brain.Screen.pressing()) {
+        int touchX = Brain.Screen.xPosition();
+        int touchY = Brain.Screen.yPosition();
+
+        if (touchX >= x && touchX <= x + w && touchY >= y && touchY <= y + h) {
+            currentAuton = autonNum;
+            
+            // Update controller display
+            Controller.Screen.clearScreen();
+            Controller.Screen.setCursor(1, 1);
+            if (currentAuton == -1) {
+                Controller.Screen.print("Auton: No Auton");
+            } else if (currentAuton == 0) {
+                Controller.Screen.print("Auton: Right-Side");
+            } else if (currentAuton == 1) {
+                Controller.Screen.print("Auton: Drive Fwd");
+            } else if (currentAuton == 2) {
+                Controller.Screen.print("Auton: Left-Side");
+            } else if (currentAuton == 3) {
+                Controller.Screen.print("Auton: Fill Low");
+            }
+            
+            wait(100, msec);
+            return;
+        }
+    }
+}
+
+void driveForward(int degreeNum) {
+
+    leftDrive.spinFor(reverse, degreeNum, degrees, false);
+    rightDrive.spinFor(degreeNum, degrees);
+
+  }
 void setVelocity(int velocity) {
 
     leftDrive.setVelocity(velocity, percent);
     rightDrive.setVelocity(velocity, percent);
 
   }
+  
+void updateDriveSpeed(void){
+  static double tempTargetHeading = -1;
+  
+ if (tempTargetHeading < 0) {
+    tempTargetHeading = InertialSensor.heading();
+  }
+  
+  printf("Temp Target Heading: %.2f\n", tempTargetHeading);
+  double forwardVal = -Controller.Axis3.position();
+  if(Controller.Axis1.position()<-50){
+    tempTargetHeading -=0.1;
+  }
+  if(Controller.Axis1.position()>50){
+    tempTargetHeading +=0.1;
+  }
+  
+  // Normalize target heading to 0-360
+  while (tempTargetHeading >= 360) tempTargetHeading -= 360;
+  while (tempTargetHeading < 0) tempTargetHeading += 360;
+  
+  // double turnPower = turnPID(tempTargetHeading);
+  double turnPower = Controller.Axis1.position() * -0.12;
+  double forwardVoltage = forwardVal * 0.12;
+  
+  double leftVoltage = forwardVoltage + turnPower;
+  double rightVoltage = forwardVoltage - turnPower;
 
+  frontRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  middleRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  backRightDrive.spin(vex::forward, rightVoltage, vex::voltageUnits::volt);
+  frontLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
+  middleLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
+  backLeftDrive.spin(vex::forward, leftVoltage, vex::voltageUnits::volt);
 
-  void drive(int degreeNum, int dir) {
+} 
+
+void driveTicks(double inches){
+  double ticks = inches / inchesPerTick;
+  leftDrive.spinFor(reverse, ticks, vex::rotationUnits::raw, false);
+  rightDrive.spinFor(ticks, vex::rotationUnits::raw);
+}
+
+void drive(int degreeNum, int dir) {
   if(dir == 0){
     leftDrive.spinFor(forward, degreeNum, degrees, false);
     rightDrive.spinFor(forward, degreeNum, degrees);
@@ -196,266 +516,715 @@ void setVelocity(int velocity) {
     leftDrive.spinFor(reverse, degreeNum, degrees, false);
     rightDrive.spinFor(reverse, degreeNum, degrees);}
   }
-
+void colorSenseScore(int wrongCol, double timeout = 0){
+  int startTime = Brain.Timer.time(msec);
+  
+  if(wrongCol == 0){
+    while(topColor.color() != red){
+      // Check timeout
+      if (timeout > 0 && (Brain.Timer.time(msec) - startTime) > timeout) {
+        printf("ColorSenseScore timeout reached at %dms\n", Brain.Timer.time(msec) - startTime);
+        lowBlockTrack.stop();
+        highBlockTrack.stop();
+        return;
+      }
+      
+      lowBlockTrack.spin(forward, 10, volt);
+      highBlockTrack.spin(forward, 10, volt);
+      wait(5, msec);
+    }
+    wait(250, msec);
+    lowBlockTrack.stop();
+  }
+  else{
+    while(topColor.color() != blue){
+      // Check timeout
+      if (timeout > 0 && (Brain.Timer.time(msec) - startTime) > timeout) {
+        printf("ColorSenseScore timeout reached at %dms\n", Brain.Timer.time(msec) - startTime);
+        lowBlockTrack.stop();
+        highBlockTrack.stop();
+        return;
+      }
+      
+      lowBlockTrack.spin(forward, 10, volt);
+      highBlockTrack.spin(forward, 10, volt);
+    }
+    wait(250, msec);
+    lowBlockTrack.stop();
+  }
+  
+}
 void turn(int degreeNum, int dir){
-
+  
   if(dir == 0){
+  int targetTurn = InertialSensor.angle()-degreeNum;
     leftDrive.spinFor(forward, degreeNum, degrees, false);
     rightDrive.spinFor(reverse, degreeNum, degrees);
   }
   else{
+    int targetTurn = InertialSensor.angle()-degreeNum;
     leftDrive.spinFor(reverse, degreeNum, degrees, false);
     rightDrive.spinFor(forward, degreeNum, degrees);}
 
 }
-  double prevDistance =0;
-double trapezoidsAreYucky(double currentPosition, double targetDistance, double maxVelocity, double acceleration) {
+/*
+void driveToPoint(int x, int y) {
+  double deltaX = x - robotX;
+  double deltaY = y - robotY;
   
-  // Using: d = v² / (2a)
-  double accelDistance = (maxVelocity * maxVelocity) / (2.0 * acceleration);
-  double decelDistance = accelDistance*2;  // Symmetric profile
-  double distToTarget = fabs(targetDistance) - fabs(currentPosition);
-  /*
-  if (accelDistance + decelDistance > fabs(targetDistance)) {
-    // Triangular: v_peak = sqrt(distance * acceleration)
-    double peakVelocity = sqrt(fabs(targetDistance) * acceleration);
-    maxVelocity = peakVelocity;
-    accelDistance = fabs(targetDistance) / 2.0;
-    decelDistance = fabs(targetDistance) / 2.0;
-  }
-  */
-  double cruiseDistance = fabs(targetDistance) - accelDistance - decelDistance;
-  double absPosition = fabs(currentPosition);
-  double velocity = 0;
-    double currentVelocity =  (absPosition-prevDistance)*0.2;
+  double distance = sqrt(deltaX * deltaX + deltaY * deltaY);
 
-  // Minimum velocity to overcome static friction (mm/s)
-  const double MIN_VELOCITY = 100.0;
+  double targetAngle2 = atan2(deltaX, deltaY) * 180.0 / M_PI;
   
-  // Determine phase and calculate velocity
-  if (absPosition < accelDistance) {
-    // ACCELERATION: v = sqrt(2 * a * d)
-    velocity = sqrt(2.0 * acceleration * absPosition);
-    if (velocity > maxVelocity) velocity = maxVelocity;
-    if (velocity < MIN_VELOCITY) velocity = MIN_VELOCITY;  // Minimum to start moving
-    printf("ACCELERATING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
+  if (targetAngle2 < 0) {
+    targetAngle2 += 360;
   } 
-   if (absPosition > accelDistance && absPosition < accelDistance + cruiseDistance) {
-    // CRUISE: constant max velocity
-    velocity = maxVelocity;
-    printf("CRUISING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
-  } 
-
-   if (absPosition > accelDistance + cruiseDistance) {
-    // DECELERATION: v = sqrt(2 * a * distance_remaining)
-    double distanceRemaining = fabs(targetDistance) - absPosition;
-    velocity = sqrt(2.0 * acceleration * distanceRemaining)/4.0;
-
-    if (velocity < 0) velocity = 0;  // Minimum to keep moving
-    printf("DECELERATING, currentVelocity: %.2f mm/s, targetVelocity: %.2f mm/s\n", currentVelocity, velocity);
-  }
-  // printf("Current Position: %.2f mm, Distance to Target: %.2f mm\n, accel", currentPosition, distToTarget);
-  // printf("Accel Distance: %.2f mm, Cruise Distance: %.2f mm, Decel Distance: %.2f mm\n", accelDistance, cruiseDistance, decelDistance);
-  // printf("Calculated Velocity: %.2f mm/s\n", velocity);
-
-  prevDistance = absPosition;
-
   
-  return velocity;  // Returns mm/s
-  wait(20, msec); 
+  turnPID(targetAngle2, 1);
+
+  setVelocity(80);
+  driveTicks(distance);
+
+  robotX = x;
+  robotY = y;
+  robotHeading = targetAngle2;
+}*/
+
+struct Point {
+  double x;
+  double y;
+  double speed;
+  double heading = -1;
+  int flag = -1;
+};
+/** 
+Point square[] = {
+  {24, 0, 50}, 
+  {24, 24, 50},  
+  {0, 24, 50},   
+  {0, 0, 50}
+};
+
+Point Auton1[] = {
+
+  {12, 0, 40},
+  {3, 0, 40}
+
+};
+
+
+bool loadingBlocks = false;
+
+void extakeBalls(){}
+
+void scoreTop(){
+  blockTrack1.spin(forward, 12, volt);
+  blockTrack2.spin(forward, 12, volt);
+  blockTrack3.spin(forward, 12, volt);
+  blockTrack4.spin(forward, 12, volt);
 }
 
-void trapDrive(double targetDistance, double maxVelocity, double acceleration, bool reverse = false, int timeout = 0) {
-  leftDrive.setPosition(0, degrees);
-  rightDrive.setPosition(0, degrees);
-  int elapsedTime = 0;
-  while(true) {
-        // Check timeout
-        if (timeout > 0 && elapsedTime >= timeout) {
-          leftDrive.stop(brake);
-          rightDrive.stop(brake);
-          return;
-        }
+void turn(int direction, int degreeNum) {
 
-        // Get average position from all 6 motors for accuracy
-        double leftAvg = (fabs(frontLeftDrive.position(degrees)) + 
-                         fabs(middleLeftDrive.position(degrees)) + 
-                         fabs(backLeftDrive.position(degrees))) / 3.0;
-        double rightAvg = (fabs(frontRightDrive.position(degrees)) + 
-                          fabs(middleRightDrive.position(degrees)) + 
-                          fabs(backRightDrive.position(degrees))) / 3.0;
-        double motorDegrees = (leftAvg + rightAvg) / 2.0;
-        double currentPosition_mm = degreesToMM(motorDegrees);
-        
-        if (currentPosition_mm >= targetDistance) break;
-        
-        double targetVelocity_mmps = trapezoidsAreYucky(currentPosition_mm, targetDistance, maxVelocity, acceleration);
-        if(!reverse){
-          leftDrive.spin(forward, -targetVelocity_mmps*0.06, volt); 
-          rightDrive.spin(forward, -targetVelocity_mmps*0.06, volt);
-        }
-        if(reverse){
-          leftDrive.spin(forward, targetVelocity_mmps*0.06, volt); 
-          rightDrive.spin(forward, targetVelocity_mmps*0.06, volt);
-        }
-        wait(10, msec);
-        elapsedTime += 10;
-      }
+    if (direction == 0) {
+
+      leftDrive.spinFor(degreeNum, degrees, false);
+      rightDrive.spinFor(degreeNum, degrees);
+
+    } else {
+
+      leftDrive.spinFor(reverse, degreeNum, degrees, false);
+      rightDrive.spinFor(reverse, degreeNum, degrees);
+    }
+
+  }
+  
+
+void drivePath(Point path[], int pathLength) {
+  for (int i = 0; i < pathLength; i++) {
+    
+    if(path[i].flag == 0){
+    loadBalls();
+    } else if(path[i].flag == 1){
       
-      // Stop when target reached
-      leftDrive.stop(brake);
-      rightDrive.stop(brake);
+    }   
+    else if(path[i].flag == 2){
+      
+    }
+    
+    setVelocity(path[i].speed);
+    
+    driveToPoint(path[i].x, path[i].y);
+    
+    if (path[i].heading >= 0) {
+      turnPID(path[i].heading, 1);
+      robotHeading = path[i].heading;
+    }
+    
+  }
+}
+*/
+void brainUI(void){
+
+  motorStatusTimer+=5;
+
+  if (motorStatusTimer>=500){ 
+    motorStatusTimer=0;
+    frontLeftStatus = frontLeftDrive.installed();
+    middleLeftStatus = middleLeftDrive.installed();
+    backLeftStatus = backLeftDrive.installed();
+    frontRightStatus = frontRightDrive.installed();
+    middleRightStatus = middleRightDrive.installed();
+    backRightStatus = backRightDrive.installed();
+    lowBlockTrackStatus = lowBlockTrack.installed();
+    highBlockTrackStatus = highBlockTrack.installed();
+    topColorStatus = topColor.installed();
+    inertialStatus = InertialSensor.installed();
+  }
+  Brain.Screen.clearScreen();
+
+  switch(screen){
+    case 0:
+      Brain.Screen.setFillColor(black);
+      Brain.Screen.setPenColor(white);
+
+      drawButton(35, 40, 200, 160, "Auton", 1);
+      drawButton(245, 40, 200, 160, "Status Check", 2);
+      break;
+
+    case 1:
+      Brain.Screen.setFillColor(black);
+      Brain.Screen.setPenColor(white);
+      Brain.Screen.setFont(prop30);
+
+      drawAutonButton(10, 10, 460, 42, "No Auton", -1, red);
+      drawAutonButton(10, 56, 460, 42, "Right-Side Auton", 0, white);
+      drawAutonButton(10, 102, 460, 42, "Drive Forward Auton", 1, white);
+      drawAutonButton(10, 148, 460, 42, "Left-Side Auton", 2, white);
+      drawAutonButton(10, 194, 460, 42, "Fill Low", 3, white);
+      
+      Brain.Screen.setFont(prop20);
+      drawButton(405, 212, 60, 20, "Back", 0);
+      break;
+
+    case 2:
+      Brain.Screen.setFillColor(black);
+      Brain.Screen.setPenColor(white);
+      Brain.Screen.setFont(prop20);
+
+      Brain.Screen.setPenColor(frontLeftStatus ? white : red);
+      Brain.Screen.printAt(10, 15, false, "Front Left (P4): %s", frontLeftStatus ? "OK" : "ERR");
+      if (frontLeftStatus) {
+        double flTemp = frontLeftDrive.temperature(celsius);
+        Brain.Screen.setPenColor(flTemp > 50 ? (flTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 15, false, "%.1fC", flTemp);
+      }
+
+      Brain.Screen.setPenColor(middleLeftStatus ? white : red);
+      Brain.Screen.printAt(10, 30, false, "Middle Left (P5): %s", middleLeftStatus ? "OK" : "ERR");
+      if (middleLeftStatus) {
+        double mlTemp = middleLeftDrive.temperature(celsius);
+        Brain.Screen.setPenColor(mlTemp > 50 ? (mlTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 30, false, "%.1fC", mlTemp);
+      }
+
+      Brain.Screen.setPenColor(backLeftStatus ? white : red);
+      Brain.Screen.printAt(10, 45, false, "Back Left (P3): %s", backLeftStatus ? "OK" : "ERR");
+      if (backLeftStatus) {
+        double blTemp = backLeftDrive.temperature(celsius);
+        Brain.Screen.setPenColor(blTemp > 50 ? (blTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 45, false, "%.1fC", blTemp);
+      }
+
+      Brain.Screen.setPenColor(frontRightStatus ? white : red);
+      Brain.Screen.printAt(10, 60, false, "Front Right (P2): %s", frontRightStatus ? "OK" : "ERR");
+      if (frontRightStatus) {
+        double frTemp = frontRightDrive.temperature(celsius);
+        Brain.Screen.setPenColor(frTemp > 50 ? (frTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 60, false, "%.1fC", frTemp);
+      }
+
+      Brain.Screen.setPenColor(middleRightStatus ? white : red);
+      Brain.Screen.printAt(10, 75, false, "Middle Right (P6): %s", middleRightStatus ? "OK" : "ERR");
+      if (middleRightStatus) {
+        double mrTemp = middleRightDrive.temperature(celsius);
+        Brain.Screen.setPenColor(mrTemp > 50 ? (mrTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 75, false, "%.1fC", mrTemp);
+      }
+
+      Brain.Screen.setPenColor(backRightStatus ? white : red);
+      Brain.Screen.printAt(10, 90, false, "Back Right (P1): %s", backRightStatus ? "OK" : "ERR");
+      if (backRightStatus) {
+        double brTemp = backRightDrive.temperature(celsius);
+        Brain.Screen.setPenColor(brTemp > 50 ? (brTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 90, false, "%.1fC", brTemp);
+      }
+
+      Brain.Screen.setPenColor(lowBlockTrackStatus ? white : red);
+      Brain.Screen.printAt(10, 105, false, "Low Track (P14): %s", lowBlockTrackStatus ? "OK" : "ERR");
+      if (lowBlockTrackStatus) {
+        double lbtTemp = lowBlockTrack.temperature(celsius);
+        Brain.Screen.setPenColor(lbtTemp > 50 ? (lbtTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 105, false, "%.1fC", lbtTemp);
+      }
+
+      Brain.Screen.setPenColor(highBlockTrackStatus ? white : red);
+      Brain.Screen.printAt(10, 120, false, "High Track (P15): %s", highBlockTrackStatus ? "OK" : "ERR");
+      if (highBlockTrackStatus) {
+        double hbtTemp = highBlockTrack.temperature(celsius);
+        Brain.Screen.setPenColor(hbtTemp > 50 ? (hbtTemp > 55 ? red : orange) : white);
+        Brain.Screen.printAt(420, 120, false, "%.1fC", hbtTemp);
+      }
+
+      Brain.Screen.setPenColor(topColorStatus ? white : red);
+      Brain.Screen.printAt(10, 135, false, "Color Sensor (P17): %s", topColorStatus ? "OK" : "ERR");
+      if (topColorStatus) {
+        Brain.Screen.setPenColor(white);
+        if (topColor.color() == red) {
+          Brain.Screen.setPenColor(red);
+          Brain.Screen.printAt(360, 135, false, "RED");
+        } else if (topColor.color() == blue) {
+          Brain.Screen.setPenColor(blue);
+          Brain.Screen.printAt(360, 135, false, "BLUE");
+        } else {
+          Brain.Screen.printAt(360, 135, false, "---");
+        }
+      }
+
+      Brain.Screen.setPenColor(inertialStatus ? white : red);
+      Brain.Screen.printAt(240, 15, false, "IMU (P20): %s", inertialStatus ? "OK" : "ERR");
+
+      Brain.Screen.setPenColor(white);
+      drawButton(5, 212, 60, 20, "Back", 0);
+      break;
+
+    }
+  
+  Brain.Screen.render();
+  wait(5, msec);
+
 }
 
-
+void pre_auton(void) {
+  
+  thread brainUIThread(brainUI);
+  
+  Controller.Screen.clearScreen();
+  Controller.Screen.setCursor(1, 1);
+  if (currentAuton == -1) {
+      Controller.Screen.print("Auton: No Auton");
+  } else if (currentAuton == 0) {
+      Controller.Screen.print("Auton: Right-Side");
+  } else if (currentAuton == 1) {
+      Controller.Screen.print("Auton: Drive Fwd");
+  } else if (currentAuton == 2) {
+      Controller.Screen.print("Auton: Left-Side");
+  } else if (currentAuton == 3) {
+      Controller.Screen.print("Auton: Fill Low");
+  }
+  
+  if(!calibrated){
+    int startTime = Brain.Timer.time(msec);
+    InertialSensor.calibrate();
+    while(InertialSensor.isCalibrating()){
+            printf("Calibrating...\n");
+            wait(100, msec);
+          }
+      InertialSensor.setHeading(334, degrees);
+    int calibrationTime = Brain.Timer.time(msec) - startTime;
+    printf("Calibrated in %dms\n", calibrationTime);
+    calibrated = true;
+  }
+}
 void autonomous(void) {
-//Initialization 
-InertialSensor.setHeading(90, degrees);
+    unloader.set(false);
+    descore.set(true);
+    
+  /*
+  loadingBlocks = true;
+  thread ballLoaderThread(loadBalls);
+  setVelocity(30);
+  driveForward(1100);
+  setVelocity(10);  
+  driveForward(500);
+  wait(2, sec);
+  setVelocity(40);
+  driveForward(120);
+  driveReverse(800);
+  loadingBlocks = false;
+  setVelocity(20);
+  turn(1, 600);
+  setVelocity(40);
+  driveReverse(1700);
+  setVelocity(20);
+  turn(1, 625);
+  leftDrive.setTimeout(1.5, sec);
+  rightDrive.setTimeout(1.5, sec);
+  driveReverse(800);
+  driveForward(30);
+  scoreTop();  
+  **/
+ if(currentAuton == 0){
+  
+  descore.set(true);
+  unloader.set(false);
+  setVelocity(20);
+  drive(200, 1);
+  turn(100, 1);
+  lowBlockTrack.spin(forward, 12, volt);
+  highBlockTrack.setStopping(brake);
+  drive(1400, 1);
+  //After picking up first three balls:
+  turn(370, 0);
+  drive(760, 1);
+  lowBlockTrack.spin(reverse,12, volt);
+  wait(1.22, sec);//3 seconds for full unload, 1.22 for one
+  lowBlockTrack.stop();
+  //After attempting to score first ball:
+    lowBlockTrack.stop();
+  setVelocity(40);
+  drive(2100, 0);
+  setVelocity(20);
+  turn(450, 0);
+  drive(600, 0);
+  setVelocity(20);
+  turn(370, 0); 
+  leftDrive.setTimeout(1, sec);
+  rightDrive.setTimeout(1,sec);
+  setVelocity(65);
+  drive(1300, 0);
+  //After lining up with goal:
+  unloader.set(true);
+  lowBlockTrack.spin(forward, 12, volt);
+  setVelocity(50);
+  drive(1600, 1);
+  setVelocity(30);
+  leftDrive.setTimeout(0.4, sec);
+  rightDrive.setTimeout(0.4,sec);
+  drive(400,1);
+  wait(0.5, sec);
+  setVelocity(40);
+  drive(600, 0);
+  /*
+  if(leftWallDist.objectDistance(mm) <= 340 && leftWallDist.objectDistance(mm) >= 290){
+    turn(45, 0);
+  }
+  else if(leftWallDist.objectDistance(mm) >= 410 && leftWallDist.objectDistance(mm) <= 460){
+    turn(45, 1);
+  }
+  else if(leftWallDist.objectDistance(mm) <= 320 && leftWallDist.objectDistance(mm) >= 270){
+    turn(90, 0);
+  }
+  else if(leftWallDist.objectDistance(mm) >= 460 && leftWallDist.objectDistance(mm) <= 510){
+    turn(90, 1);
+  }
+    **/
+  leftDrive.setTimeout(0.5, sec);
+  rightDrive.setTimeout(0.5,sec);
+  drive(900, 0);
+  lowBlockTrack.spin(forward, 12, volt);
+  highBlockTrack.spin(forward, 12, volt);
 
-//Aligns with and descores from matchloader1
-trapDrive(655, 300, 350);
-wait(0.5, sec);
-turnPID2(180);
-trapDrive(100, 300, 350,true);
-unloader.set(true);
-wait(1, sec);
-lowBlockTrack.spin(forward, 12, volt);
-trapDrive(250, 700, 500, false, 1000);
-wait(2, sec);
-trapDrive(105, 500, 580, true);
-wait(0.5, sec);
+ }
+ if(currentAuton == 6){  
+  /*
+    setVelocity(20);
+    drive(100, 1);
+    turnPID2(360-17);
+    setVelocity(25);
+    lowBlockTrack.spin(forward, 12, volt);
+    drive(845,1);
+    */
+   setVelocity(30);
+   lowBlockTrack.spin(forward, 12, volt);
+   drive(1240, 1);
+    wait(0.3, sec);
+    turnPID2(229, 1000);    
+    setVelocity(30);
+    drive(635, 0);
+    lowBlockTrack.spin(forward, 8, volt);
+    highBlockTrack.setVelocity(25, percent);
+    highBlockTrack.spinFor(forward, 300, degrees);
+    lowBlockTrack.stop();
+    setVelocity(33);
+    unloader.set(true);
+    drive(1740, 1);
+    wait(0.3, sec);
+    turnPID2(180);
+    lowBlockTrack.spin(forward, 12, volt);
+    setVelocity(35);
+    drive(600, 1);
+    wait(0.4, sec);
+    double distFrom180 = (180-InertialSensor.heading());
+    double tempTurn = distFrom180*1+distFrom180;
+    setVelocity(25);
+    drive(500, 0);
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
+    turnPID2(InertialSensor.heading()+tempTurn);
+    wait(0.3, sec);
+    leftDrive.setTimeout(1, sec);
+    rightDrive.setTimeout(1,sec);
+    drive(500, 0);
+    lowBlockTrack.spin(reverse, 12, volt);
+    wait(0.25, sec);
+    lowBlockTrack.spin(forward, 12, volt);
+    highBlockTrack.spin(forward, 12, volt);
+    lowBlockTrack.spin(forward, 12, volt);
+    highBlockTrack.spin(forward, 12, volt);
+    lowBlockTrack.spin(forward, 12, volt);
+    highBlockTrack.spin(forward, 12, volt);
+    lowBlockTrack.spin(forward, 12, volt);
+    highBlockTrack.spin(forward, 12, volt);
+    lowBlockTrack.spin(forward, 12, volt);
+    highBlockTrack.spin(forward, 12, volt);
+    lowBlockTrack.spin(forward, 12, volt);
+    highBlockTrack.spin(forward, 12, volt);
+    unloader.set(false);
+    wait(5, sec);
+    lowBlockTrack.stop();
+    highBlockTrack.stop();
+    leftDrive.stop(coast);
+    rightDrive.stop(coast);
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
+    printf("CALCULATED TURN: %.2f, CURRENT HEADING: %.2f\n", tempTurn, InertialSensor.heading());
 
-//Aligns with and drives through alley
-turnPID2(225);
-trapDrive(325, 300, 350,true);
-wait(0.5, sec);
-turnPID2(180);
-wait(0.5, sec);
-lowBlockTrack.stop();
-unloader.set(false);
-trapDrive(600, 300, 350, true);
-wait(0.5, sec);
-turnPID2(180);
-wait(0.5, sec);
-trapDrive(800, 300, 350, true);
-wait(0.5, sec);
+    //After picking up first three balls:
+    /* 
+    wait(0.4, sec);
+    turnPID2(315);
+    drive(250, 1);
+    lowBlockTrack.spin(reverse,7, volt);
+    wait(1, sec);
+    lowBlockTrack.stop();
+    //After going to low goal
+    drive(860, 0);
+    wait(0.4, sec);
+    turnPID2(270);
+    drive(570, 0);
+    wait(0.4,sec);
+    turnPID2(180);
+    drive(500, 0);
+    //After lining up with matchloader:
+    //setVelocity(90);
+    //unloader.set(true);
+    //lowBlockTrack.spin(forward, 12, volt);
+    //drive(700, 0);
+    */
+    
+ }
+ /*
+ else if(currentAuton == 1){
+   setVelocity(40);
+   drive(100, 0);
+ }
+else if(currentAuton == 2){
+ descore.set(true);
+  unloader.set(false);
+  setVelocity(20);
+  drive(200, 1);
+  turn(100, 1);
+  lowBlockTrack.spin(forward, 12, volt);
+  highBlockTrack.setStopping(brake);
+  drive(1400, 1);
+  //After picking up first three balls:
+  turn(370, 0);
+  drive(760, 1);
+  
+  lowBlockTrack.spin(reverse,8, volt);
+  wait(1.22, sec);//3 seconds for full unload, 1.22 for one
+  
+  lowBlockTrack.stop();
+  //After attempting to score first ball:
+  lowBlockTrack.spin(forward, 12, volt);
+  setVelocity(40);
+  drive(2100, 0);
+  setVelocity(20);
+  turn(450, 0);
+  drive(600, 0);
+  setVelocity(20);
+  turn(370, 0); 
+  leftDrive.setTimeout(1, sec);
+  rightDrive.setTimeout(1,sec);
+  setVelocity(65);
+  drive(1300, 0);
+  //After lining up with goal:
+  unloader.set(true);
+  lowBlockTrack.spin(forward, 12, volt);
+  setVelocity(50);
+  drive(1600, 1);
+  setVelocity(30);
+  leftDrive.setTimeout(0.4, sec);
+  rightDrive.setTimeout(0.4,sec);
+  drive(400,1);
+  wait(0.5, sec);
+  setVelocity(40);
+  drive(600, 0);
 
-//Aligns with and scores on longGoal1
-turnPID2(165, 1000); 
-wait(0.5, seconds);
-trapDrive(280, 300, 350, true, 1000);
-wait(0.5, seconds);
-turnPID2(90);
-trapDrive(250, 300, 350, true);
-wait(0.5, seconds);
-turnPID2(0.1,1000);
-wait(1, seconds);
-trapDrive(600, 100, 100, true, 1000);
-lowBlockTrack.spin(reverse, 12, volt);
-wait(0.17, seconds);
-lowBlockTrack.spin(forward, 12, volt);
-highBlockTrack.spin(forward, 12, volt);
-wait(3, seconds);
-highBlockTrack.stop();
-lowBlockTrack.stop();
-
-//Aligns with and descores from matchloader2
-trapDrive(70, 300, 350);
-wait(0.5, seconds);
-turnPID2(0.1, 500);
-lowBlockTrack.spin(forward, 12, volt);
-unloader.set(true);
-trapDrive(590, 100, 150, false, 1000);
-trapDrive(20, 100, 160, false, 200);
-wait(2, seconds);
-
-//Aligns with and scores again on longGoal1
-trapDrive(70, 300, 350, true);
-wait(0.5, seconds);
-turnPID2(0.1, 1000);
-trapDrive(580, 300, 350, true, 1000);
-lowBlockTrack.spin(reverse, 12, volt);
-wait(0.15, seconds);
-lowBlockTrack.spin(forward, 12, volt);
-highBlockTrack.spin(forward, 12, volt);
-leftDrive.stop();
-rightDrive.stop();
-
-
-
+}/*
+else if(currentAuton == 3){
+  
+  descore.set(true);
+  unloader.set(false);
+  setVelocity(20);
+  drive(200, 1);
+  turn(100, 1);
+  blockTrack1.spin(forward, 12, volt);
+  blockTrack2.spin(forward, 12, volt);
+  blockTrack3.spin(forward, 12, volt);
+  blockTrack4.spin(forward, 12, volt);
+  blockTrack5.stop(brake);
+  drive(1400, 1);
+  //After picking up first three balls:
+  turn(370, 0);
+  drive(760, 1);
+  blockTrack3.spin(reverse,12, volt);
+  blockTrack2.spin(reverse,12, volt);
+  blockTrack4.spin(reverse, 12, volt);
+  blockTrack5.spin(reverse, 4, volt);
+  blockTrack1.spin(reverse,5, volt);
+  wait(3, sec);//3 seconds for full unload, 1.22 for one
+  blockTrack1.stop();
+  blockTrack2.stop();
+  blockTrack3.stop();
+  blockTrack4.stop();
+  blockTrack5.stop();
+  blockTrack1.spin(forward,12, volt);
+  //After attempting to score first ball:
+  blockTrack1.spin(forward, 12, volt);
+  blockTrack3.spin(forward, 12, volt);
+  blockTrack2.spin(forward, 12, volt);
+  blockTrack4.spin(forward, 12, volt);
+  setVelocity(40);
+  drive(2100, 0);
+  setVelocity(20);
+  turn(450, 0);
+  drive(600, 0);
+  setVelocity(20);
+  turn(370, 0); 
+  leftDrive.setTimeout(1, sec);
+  rightDrive.setTimeout(1,sec);
+  setVelocity(65);
+  drive(1300, 0);
+  //After lining up with goal:
+  unloader.set(true);
+  blockTrack1.spin(forward, 12, volt);
+  blockTrack2.spin(forward, 12, volt);
+  blockTrack3.spin(forward, 12, volt);
+  blockTrack4.spin(forward, 12, volt);
+  blockTrack5.stop(brake);
+  setVelocity(50);
+  drive(1600, 1);
+  setVelocity(30);
+  leftDrive.setTimeout(0.4, sec);
+  rightDrive.setTimeout(0.4,sec);
+  drive(400,1);
+  wait(0.5, sec);
+  setVelocity(40);
+  drive(600, 0);
+  /*
+  if(leftWallDist.objectDistance(mm) <= 340 && leftWallDist.objectDistance(mm) >= 290){
+    turn(45, 0);
+  }
+  else if(leftWallDist.objectDistance(mm) >= 410 && leftWallDist.objectDistance(mm) <= 460){
+    turn(45, 1);
+  }
+  else if(leftWallDist.objectDistance(mm) <= 320 && leftWallDist.objectDistance(mm) >= 270){
+    turn(90, 0);
+  }
+  else if(leftWallDist.objectDistance(mm) >= 460 && leftWallDist.objectDistance(mm) <= 510){
+    turn(90, 1);
+  }
+  leftDrive.setTimeout(0.5, sec);
+  rightDrive.setTimeout(0.5,sec);
+  drive(900, 0);
+  lowBlockTrack.spin(forward, 12, volt);
+  highBlockTrack.spin(forward, 12, volt);
+  */
 }
 
 
-/*---------------------------------------------------------------------------*/
-/*                                                                           */
-/*                              User Control Task                            */
-/*                                                                           */
-/*  This task is used to control your robot during the user control phase of */
-/*  a VEX Competition.                                                       */
-/*                                                                           */
-/*  You must modify the code to add your own robot specific commands here.   */
-/*---------------------------------------------------------------------------*/
-double tempPosition;
 void usercontrol(void) {
-  // User control code here, inside the loop
+  
   while (1) {
-    if(Controller.ButtonB.pressing()){
-      // printf("Left motors: FL=%.1f, ML=%.1f, BL=%.1f\n", 
-      //        frontLeftDrive.position(degrees), 
-      //        middleLeftDrive.position(degrees), 
-      //        backLeftDrive.position(degrees));
-      // // printf("Right motors: FR=%.1f, MR=%.1f, BR=%.1f\n", 
-      //        frontRightDrive.position(degrees), 
-      //        middleRightDrive.position(degrees), 
-      //        backRightDrive.position(degrees));
-      //        wait(500, msec);
-    }
-    
-    // Example: Test trapezoidal motion when ButtonA is pressed
-    if(Controller.ButtonY.pressing()){
-      // Reset position
-      leftDrive.setPosition(0, degrees);
-      rightDrive.setPosition(0, degrees);
-      frontLeftDrive.setPosition(0, degrees);
-    }
-     
-    while(Controller.ButtonA.pressing()) {
-        // Get average position from all 6 motors for accuracy
-        double leftAvg = (fabs(frontLeftDrive.position(degrees)) + 
-                         fabs(middleLeftDrive.position(degrees)) + 
-                         fabs(backLeftDrive.position(degrees))) / 3.0;
-        double rightAvg = (fabs(frontRightDrive.position(degrees)) + 
-                          fabs(middleRightDrive.position(degrees)) + 
-                          fabs(backRightDrive.position(degrees))) / 3.0;
-        //double motorDegrees = (leftAvg + rightAvg) / 2.0;
-         tempPosition = fabs(frontLeftDrive.position(degrees));
-        // printf("Front Left Drive Degrees: %.2f\n", tempPosition);
-        double currentPosition_mm = degreesToMM(tempPosition);
-        // printf("Current Position in mm: %.2f\n", currentPosition_mm);
-        
-        // Debug: print raw motor degrees
-       // printf("Motor degrees: %.2f, Converted to mm: %.2f\n", motorDegrees, currentPosition_mm);
-        
-        if (currentPosition_mm >= 1000) break;
-        
-        double targetVelocity_mmps = trapezoidsAreYucky(currentPosition_mm, 1000, 300, 350);
-        leftDrive.spin(forward, targetVelocity_mmps*0.012, volt); 
-        rightDrive.spin(forward, targetVelocity_mmps*0.012, volt);
-        wait(10, msec);
+    // printf("AutonSelected: %d\n", currentAuton);
+    if(!calibrated){
+      int startTime = Brain.Timer.time(msec);
+      InertialSensor.calibrate();
+      while(InertialSensor.isCalibrating()){
+        printf("Calibrating...\n");
+        wait(100, msec);
       }
-      
-      // Stop when button released or target reached
-      leftDrive.stop(brake);
-      rightDrive.stop(brake);
-      
+      int calibrationTime = Brain.Timer.time(msec) - startTime;
+      printf("Calibrated in %dms\n", calibrationTime);
+      calibrated = true;
+    }
 
+
+
+   updateDriveSpeed();
+    updateRobotPosition();  
+    brainUI();
+
+    if(Controller.ButtonLeft.PRESSED){
+      // double driveVal = turnPID(90);
+      // rightDrive.spin(forward, driveVal, volt);
+      // leftDrive.spin(reverse, driveVal, volt);
+
+      setVelocity(40);
+    // drive(100, 1);
+      turnPID2(15);
+    
+  }
+    else{
+    //  updateDriveSpeed();
+    }
+
+   // leftDrive.spin(forward, -Controller.Axis3.position() * 0.12 - turnPID(Controller.Axis1.position()*1.8), volt);
+   // rightDrive.spin(forward, -Controller.Axis3.position() * 0.12 + turnPID(Controller.Axis1.position()*1.8), volt);
+
+    if(Controller.ButtonUp.pressing()){
+     double driveVal = turnPID(90);
+      rightDrive.spin(forward, driveVal, volt);
+      leftDrive.spin(reverse, driveVal, volt);}
+    if(Controller.ButtonDown.PRESSED){
+    setVelocity(60);  
+    turn(45, 1);}
+    if(Controller.ButtonRight.PRESSED){
+       
     }
     
-    // printf("Front Left Drive Degrees: %.2f\n", tempPosition);
-    wait(20, msec); // Sleep the task for a short amount of time to
-                    // prevent wasted resources.
-  }
 
+    if(Controller.ButtonR2.pressing()){
+      lowBlockTrack.spin(forward, 12, volt);
+      highBlockTrack.spin(forward, 12, volt); 
+    } else if(Controller.ButtonR1.pressing()){
+        lowBlockTrack.spin(reverse, 12, volt);
+        highBlockTrack.spin(reverse, 12, volt);
+    } else if(Controller.ButtonL2.pressing()){
+      lowBlockTrack.spin(reverse, 6, volt);
+      highBlockTrack.stop();
+    } else if(Controller.ButtonL1.pressing()){
+      lowBlockTrack.spin(forward, 12, volt);
+      highBlockTrack.setStopping(brake);
+    } else {
+      lowBlockTrack.stop();
+      highBlockTrack.stop();
+    }
+
+    if(Controller.ButtonX.PRESSED || Controller.ButtonA.PRESSED){
+      unloader.set(!unloader.value());
+    }
+    if(Controller.ButtonY.PRESSED || Controller.ButtonB.PRESSED){
+      descore.set(!descore.value());
+    }
+
+    wait(10, msec); // Sleep the task for a short amount of time to prevent wasted resources.
+  }
+}
 
 //
 // Main will set up the competition functions and callbacks.
@@ -463,7 +1232,7 @@ void usercontrol(void) {
 int main() {
   // Set up callbacks for autonomous and driver control periods.
   Competition.autonomous(autonomous);
- // Competition.drivercontrol(usercontrol);
+  Competition.drivercontrol(usercontrol); 
 
   // Run the pre-autonomous function.
   pre_auton();
@@ -473,3 +1242,4 @@ int main() {
     wait(100, msec);
   }
 }
+

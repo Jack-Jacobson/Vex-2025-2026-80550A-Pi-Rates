@@ -432,7 +432,7 @@ trapDrive(400, 300, 350);
 wait(0.3, sec);
 unloader.set(true);
 turnPID2(300);
-trapDrive(770, 300, 350);
+trapDrive(755, 300, 350);
 wait(0.5, seconds);
 
 //Line up and score on longGoal2
@@ -471,7 +471,7 @@ unloader.set(false);
 trapDrive(100, 300, 350);
 wait(0.2, seconds);
 turnPID2(90);
-trapDrive(180, 300, 350);
+trapDrive(220, 300, 350);
 wait(0.2, seconds);
 turnPID2(170);
 leftDrive.setTimeout(1100, msec);

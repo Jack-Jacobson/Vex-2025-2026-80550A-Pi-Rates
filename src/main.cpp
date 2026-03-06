@@ -139,7 +139,7 @@ double turnPID2(double targetHeading, int timeLimit = 0) {
   turnIntegral = 0.0;
     turnPrevError = 0.0;  
   int settledTime = 0;
-  const int requiredSettledTime = 50;
+  const int requiredSettledTime = 200;
   int elapsedTime = 0;
   
   // Initialize prevError to avoid derivative spike on first iteration
@@ -166,6 +166,8 @@ double turnPID2(double targetHeading, int timeLimit = 0) {
     if (turnIntegral > 50) turnIntegral = 50;
     if (turnIntegral < -50) turnIntegral = -50;
     
+
+    
     double derivative = error - turnPrevError;
     double power = (kP * error) + (kI * turnIntegral) + (kD * derivative);
     
@@ -179,7 +181,7 @@ double turnPID2(double targetHeading, int timeLimit = 0) {
     if(fabs(error) < 1.0){
       power = 0;
       turnIntegral = 0;
-      settledTime += 5;
+      settledTime += 2;
     } else {
       settledTime = 0;
     }
@@ -209,7 +211,7 @@ void driveTurn(double fwddist, double turn, double timeout = 0) {
   turnIntegral = 0.0;
   turnPrevError = 0.0;  
   int settledTime = 0;
-  const int requiredSettledTime = 50;
+  const int requiredSettledTime = 5000;
   
   double currentHeading = InertialSensor.heading();
   double initialError = turn - currentHeading;
@@ -937,7 +939,9 @@ void autonomous(void) {
     */
    setVelocity(30);
    lowBlockTrack.spin(forward, 12, volt);
-   drive(1240, 1);
+   drive(100, 1);
+   turnPID2(334);
+   drive(1020, 1);
     wait(0.3, sec);
     turnPID2(229, 1000);    
     setVelocity(30);
@@ -946,13 +950,13 @@ void autonomous(void) {
     highBlockTrack.setVelocity(25, percent);
     highBlockTrack.spinFor(forward, 300, degrees);
     lowBlockTrack.stop();
-    setVelocity(33);
+    setVelocity(30);
     unloader.set(true);
-    drive(1740, 1);
+    drive(1793, 1);
     wait(0.3, sec);
     turnPID2(180);
     lowBlockTrack.spin(forward, 12, volt);
-    setVelocity(35);
+    setVelocity(20);
     drive(600, 1);
     wait(0.4, sec);
     double distFrom180 = (180-InertialSensor.heading());
@@ -1014,7 +1018,6 @@ void autonomous(void) {
     //lowBlockTrack.spin(forward, 12, volt);
     //drive(700, 0);
     */
-    
  }
  /*
  else if(currentAuton == 1){
@@ -1242,4 +1245,3 @@ int main() {
     wait(100, msec);
   }
 }
-

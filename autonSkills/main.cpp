@@ -392,7 +392,7 @@ wait(2, seconds);
 //Aligns with and scores again on longGoal1
 trapDrive(150, 200, 150, true, 300);
 wait(0.5, seconds);
-turnPID2(5, 500);
+turnPID2(1, 500);
 trapDrive(530, 200, 150, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
 wait(0.15, seconds);
@@ -418,7 +418,7 @@ wait(0.5, seconds);
 turnPID2(20, 1000);
 trapDrive(100, 300, 350, true);
 wait(1, sec); 
-turnPID2(90);
+turnPID2(90, 30000);
 trapDrive(465, 300, 350, true, 1500);
 wait(0.3, sec);
 turnPID2(212);
@@ -432,7 +432,7 @@ trapDrive(400, 300, 350);
 wait(0.3, sec);
 unloader.set(true);
 turnPID2(300);
-trapDrive(755, 300, 350);
+trapDrive(745, 300, 350);
 wait(0.5, seconds);
 
 //Line up and score on longGoal2

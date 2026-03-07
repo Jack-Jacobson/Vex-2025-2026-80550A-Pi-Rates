@@ -340,7 +340,7 @@ trapDrive(100, 300, 350,true);
 unloader.set(true);
 wait(1, sec);
 lowBlockTrack.spin(forward, 12, volt);
-trapDrive(250, 700, 500, false, 1000);
+trapDrive(250, 500, 550, false, 1000);
 drive(20, 1);
 wait(2, sec);
 trapDrive(105, 500, 580, true);
@@ -385,14 +385,14 @@ wait(0.5, seconds);
 turnPID2(0, 500);
 lowBlockTrack.spin(forward, 12, volt);
 unloader.set(true);
-trapDrive(510, 100, 50, false, 1000);
-trapDrive(20, 100, 50, false, 200);
+trapDrive(510, 400, 450, false, 1000);
+drive(40, 1);
 wait(2, seconds);
 
 //Aligns with and scores again on longGoal1
 trapDrive(150, 200, 150, true, 300);
 wait(0.5, seconds);
-turnPID2(1, 500);
+turnPID2(356, 500);
 trapDrive(530, 200, 150, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
 wait(0.15, seconds);
@@ -432,12 +432,12 @@ trapDrive(400, 300, 350);
 wait(0.3, sec);
 unloader.set(true);
 turnPID2(300);
-trapDrive(745, 300, 350);
+trapDrive(728, 300, 350);
 wait(0.5, seconds);
 
 //Line up and score on longGoal2
 turnPID2(1);
-trapDrive(530, 300, 350, true, 1000);
+trapDrive(540, 300, 350, true, 1000);
 lowBlockTrack.spin(reverse, 12, volt);
 wait(0.2, seconds);
 lowBlockTrack.spin(forward, 12, volt);
@@ -471,19 +471,23 @@ unloader.set(false);
 trapDrive(100, 300, 350);
 wait(0.2, seconds);
 turnPID2(90);
-trapDrive(220, 300, 350);
+trapDrive(260, 300, 350);
 wait(0.2, seconds);
 turnPID2(170);
-leftDrive.setTimeout(1100, msec);
-rightDrive.setTimeout(1100, msec);
+leftDrive.setTimeout(1500, msec);
+rightDrive.setTimeout(1500, msec);
 drive(10000000, 1);
+wait(0.5, seconds);
 turnPID2(90, 2000);
-trapDrive(900, 300, 350);
-lowBlockTrack.spin(forward, 12, volt);
-highBlockTrack.spin(forward, 12, volt);
+trapDrive(100, 300, 350);
+turnPID2(97, 1000);;
+trapDrive(1800, 300, 350, false, 3000);
 wait(1, seconds);
-leftDrive.spin(reverse, 12, volt);
-rightDrive.spin(reverse, 12, volt);
+drive(300, 1);
+drive(300, 0);
+drive(300, 1);
+drive(300, 0);
+
 
 }
 
